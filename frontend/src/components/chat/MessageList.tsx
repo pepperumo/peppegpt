@@ -79,9 +79,11 @@ export const MessageList = ({ messages, isLoading, isGeneratingResponse = false,
         {/* Only show loading indicator when generating a response, not when switching conversations */}
         {isGeneratingResponse && (
           <div id="loading-indicator" className="max-w-4xl mx-auto px-4 flex items-start gap-4 animate-fade-in mb-6">
-            <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
-              AI
-            </div>
+            <img
+              src="/giuseppe-avatar.jpg"
+              alt="Giuseppe"
+              className="h-8 w-8 rounded-full object-cover"
+            />
             <div className="flex items-center bg-chat-assistant py-3 px-4 rounded-lg max-w-[80%]">
               <LoadingDots className="text-current" />
             </div>
@@ -91,9 +93,11 @@ export const MessageList = ({ messages, isLoading, isGeneratingResponse = false,
         {/* Show loading indicator when switching conversations */}
         {isLoadingMessages && (
           <div id="loading-indicator" className="max-w-4xl mx-auto px-4 flex items-start gap-4 animate-fade-in mb-6">
-            <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
-              AI
-            </div>
+            <img
+              src="/giuseppe-avatar.jpg"
+              alt="Giuseppe"
+              className="h-8 w-8 rounded-full object-cover"
+            />
             <div className="flex items-center bg-chat-assistant py-3 px-4 rounded-lg max-w-[80%]">
               <LoadingDots className="text-current" />
             </div>

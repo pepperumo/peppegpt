@@ -243,11 +243,12 @@ def insert_document_rows(file_id: str, rows: List[Dict[str, Any]]) -> None:
     except Exception as e:
         print(f"Error inserting document rows: {e}")
 
-def process_file_for_rag(file_content: bytes, text: str, file_id: str, file_url: str, 
-                        file_title: str, mime_type: Optional[str] = None, config: Optional[Dict[str, Any]] = None) -> Optional[bool]:
+def process_file_for_rag(file_content: bytes, text: str, file_id: str, file_url: str,
+                        file_title: str, mime_type: Optional[str] = None, config: Optional[Dict[str, Any]] = None,
+                        folder_path: Optional[str] = None) -> Optional[bool]:
     """
     Process a file for the RAG pipeline - delete existing records and insert new ones.
-    
+
     Args:
         file_content: The binary content of the file
         text: The text content extracted from the file
@@ -256,6 +257,7 @@ def process_file_for_rag(file_content: bytes, text: str, file_id: str, file_url:
         file_title: The title of the file
         mime_type: Mime type of the file
         config: Configuration for things like the chunk size and overlap
+        folder_path: Path of the parent folder (for graph-rag folder detection)
     """
     try:
         # First, delete any existing records for this file
@@ -349,8 +351,6 @@ def process_file_for_rag(file_content: bytes, text: str, file_id: str, file_url:
 
         # For images, don't chunk the image, just store the title for RAG and include the binary in the metadata
         if mime_type and mime_type.startswith("image"):
-            insert_document_chunks(chunks, embeddings, file_id, file_url, file_title, mime_type, file_content)
-
             # Decide if image should be added to knowledge graph (usually skip for simple images)
             if GRAPH_AVAILABLE:
                 use_graph, reason = should_use_graph_for_document(
@@ -358,7 +358,7 @@ def process_file_for_rag(file_content: bytes, text: str, file_id: str, file_url:
                     chunks=chunks,
                     file_title=file_title,
                     mime_type=mime_type,
-                    file_metadata={"url": file_url, "file_id": file_id, "type": "image"}
+                    file_metadata={"url": file_url, "file_id": file_id, "type": "image", "folder_path": folder_path or ""}
                 )
                 
                 print(f"📊 Graph decision for image '{file_title}': {'✓ USE GRAPH' if use_graph else '✗ SKIP GRAPH'} - {reason}")
@@ -388,11 +388,10 @@ def process_file_for_rag(file_content: bytes, text: str, file_id: str, file_url:
                     finally:
                         loop.close()
 
+            # Insert chunks AFTER graph processing (so incomplete graph = no chunks saved)
+            insert_document_chunks(chunks, embeddings, file_id, file_url, file_title, mime_type, file_content)
             return True
         
-        # Insert the chunks with their embeddings
-        insert_document_chunks(chunks, embeddings, file_id, file_url, file_title, mime_type or "text/plain")
-
         # Intelligently decide if this document should use knowledge graph
         if GRAPH_AVAILABLE:
             use_graph, reason = should_use_graph_for_document(
@@ -400,7 +399,7 @@ def process_file_for_rag(file_content: bytes, text: str, file_id: str, file_url:
                 chunks=chunks,
                 file_title=file_title,
                 mime_type=mime_type,
-                file_metadata={"url": file_url, "file_id": file_id}
+                file_metadata={"url": file_url, "file_id": file_id, "folder_path": folder_path or ""}
             )
             
             print(f"📊 Graph decision for '{file_title}': {'✓ USE GRAPH' if use_graph else '✗ SKIP GRAPH'} - {reason}")
@@ -436,6 +435,11 @@ def process_file_for_rag(file_content: bytes, text: str, file_id: str, file_url:
             else:
                 print(f"ⓘ Skipping knowledge graph for this document - using vector-only storage")
 
+        # Insert chunks AFTER graph processing completes (or is skipped)
+        # This ensures chunks are only saved if the entire pipeline succeeds
+        insert_document_chunks(chunks, embeddings, file_id, file_url, file_title, mime_type or "text/plain")
+
+        print(f"✓ Successfully processed document: {file_title} ({len(chunks)} chunks)")
         return True
     except Exception as e:
         traceback.print_exc()

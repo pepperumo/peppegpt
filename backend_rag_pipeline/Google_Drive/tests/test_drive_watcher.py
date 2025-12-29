@@ -21,7 +21,9 @@ with patch.dict(os.environ, {
     'LLM_PROVIDER': 'openai',
     'LLM_BASE_URL': 'https://api.openai.com/v1',
     'LLM_API_KEY': 'test-llm-key',
-    'VISION_LLM_CHOICE': 'gpt-4-vision-preview'
+    'VISION_LLM_CHOICE': 'gpt-4-vision-preview',
+    'RAG_PIPELINE_ID': '',  # Disable database state to use file-based config for tests
+    'RAG_WATCH_FOLDER_ID': '',  # Disable Docker folder override for tests
 }):
     # Mock the Supabase client
     with patch('supabase.create_client') as mock_create_client:
@@ -200,15 +202,16 @@ class TestGoogleDriveWatcher:
         
         # Verify the result combines files from the folder and subfolders
         assert len(result) == 4
-        assert {'id': 'file1', 'name': 'File 1', 'mimeType': 'text/plain'} in result
-        assert {'id': 'file2', 'name': 'File 2', 'mimeType': 'application/pdf'} in result
-        assert {'id': 'file3', 'name': 'File 3', 'mimeType': 'text/csv'} in result
-        assert {'id': 'file4', 'name': 'File 4', 'mimeType': 'text/plain'} in result
+        # Check that files are present (folder_path may be added by the code)
+        result_ids = [f['id'] for f in result]
+        assert 'file1' in result_ids
+        assert 'file2' in result_ids
+        assert 'file3' in result_ids
+        assert 'file4' in result_ids
     
     @patch.object(GoogleDriveWatcher, 'authenticate')
     @patch.object(GoogleDriveWatcher, 'get_folder_contents')
-    @patch.object(GoogleDriveWatcher, 'save_last_check_time')
-    def test_get_changes_with_folder(self, mock_save, mock_get_folder, mock_authenticate, watcher):
+    def test_get_changes_with_folder(self, mock_get_folder, mock_authenticate, watcher):
         """Test getting changes with a specific folder ID"""
         # Setup
         watcher.folder_id = 'test_folder'
@@ -217,19 +220,18 @@ class TestGoogleDriveWatcher:
             {'id': 'file2', 'name': 'File 2', 'mimeType': 'application/pdf'}
         ]
         mock_get_folder.return_value = mock_files
-        
+
         # Call the method
         result = watcher.get_changes()
-        
+
         # Verify results
         assert result == mock_files
         mock_get_folder.assert_called_once()
         assert 'test_folder' in mock_get_folder.call_args[0]
-        mock_save.assert_called_once()
+        # Note: save_last_check_time is now called after successful processing, not during get_changes
     
     @patch.object(GoogleDriveWatcher, 'authenticate')
-    @patch.object(GoogleDriveWatcher, 'save_last_check_time')
-    def test_get_changes_without_folder(self, mock_save, mock_authenticate, watcher):
+    def test_get_changes_without_folder(self, mock_authenticate, watcher):
         """Test getting changes without a specific folder ID"""
         # Setup
         watcher.folder_id = None
@@ -243,10 +245,10 @@ class TestGoogleDriveWatcher:
         mock_execute = MagicMock(return_value={'files': mock_files})
         mock_list.execute = mock_execute
         watcher.service.files().list = MagicMock(return_value=mock_list)
-        
+
         # Call the method
         result = watcher.get_changes()
-        
+
         # Verify results
         assert result == mock_files
         # Instead of checking call count, check that it was called with the right parameters
@@ -255,7 +257,7 @@ class TestGoogleDriveWatcher:
             pageSize=100,
             fields='nextPageToken, files(id, name, mimeType, webViewLink, modifiedTime, createdTime, trashed)'
         )
-        mock_save.assert_called_once()
+        # Note: save_last_check_time is now called after successful processing, not during get_changes
     
     def test_download_file_regular(self):
         """Test downloading a regular file"""
@@ -350,22 +352,23 @@ class TestGoogleDriveWatcher:
             'name': 'test.txt',
             'mimeType': 'text/plain',
             'webViewLink': 'https://example.com/file1',
-            'modifiedTime': '2023-01-01T00:00:00Z'
+            'modifiedTime': '2023-01-01T00:00:00Z',
+            'folder_path': ''  # New field for graph-rag folder detection
         }
         mock_download.return_value = b'file content'
         mock_extract_text.return_value = 'extracted text'
-        
+
         # Call the method
         watcher.process_file(file_data)
-        
+
         # Verify all steps were called correctly
         mock_download.assert_called_once_with('file1', 'text/plain')
         mock_extract_text.assert_called_once_with(b'file content', 'text/plain', 'test.txt', watcher.config)
         mock_process_rag.assert_called_once_with(
-            b'file content', 'extracted text', 'file1', 'https://example.com/file1', 
-            'test.txt', 'text/plain', watcher.config
+            b'file content', 'extracted text', 'file1', 'https://example.com/file1',
+            'test.txt', 'text/plain', watcher.config, ''  # folder_path added
         )
-        
+
         # Verify known files was updated
         assert watcher.known_files['file1'] == '2023-01-01T00:00:00Z'
     
@@ -447,18 +450,23 @@ class TestGoogleDriveWatcher:
         assert "No text could be extracted" in captured.out
     
     @patch.object(GoogleDriveWatcher, 'authenticate')
-    def test_check_for_deleted_files(self, mock_authenticate, watcher):
+    @patch('Google_Drive.drive_watcher.supabase')
+    def test_check_for_deleted_files(self, mock_supabase, mock_authenticate, watcher):
         """Test checking for deleted files"""
         # Setup
         watcher.service = MagicMock()
-        watcher.known_files = {
-            'file1': '2023-01-01T00:00:00Z',  # Not trashed
-            'file2': '2023-01-01T00:00:00Z',  # Trashed
-            'file3': '2023-01-01T00:00:00Z',  # Not found (404)
-            'file4': '2023-01-01T00:00:00Z',  # Other error
-        }
-        
-        # Mock get file responses
+
+        # Mock Supabase document_metadata query - now used instead of known_files
+        mock_supabase.table.return_value.select.return_value.execute.return_value = MagicMock(
+            data=[
+                {'id': 'file1', 'title': 'File 1'},  # Not trashed
+                {'id': 'file2', 'title': 'File 2'},  # Trashed
+                {'id': 'file3', 'title': 'File 3'},  # Not found (404)
+                {'id': 'file4', 'title': 'File 4'},  # Other error
+            ]
+        )
+
+        # Mock get file responses from Google Drive
         def mock_get_file(fileId, fields):
             if fileId == 'file1':
                 return MagicMock(execute=lambda: {'trashed': False, 'name': 'File 1'})
@@ -468,12 +476,12 @@ class TestGoogleDriveWatcher:
                 raise Exception("File not found: 404")
             else:
                 raise Exception("Other error")
-        
+
         watcher.service.files().get = mock_get_file
-        
+
         # Call the method
         result = watcher.check_for_deleted_files()
-        
+
         # Verify the result contains the trashed and not found files
         assert 'file2' in result  # Trashed
         assert 'file3' in result  # Not found (404)

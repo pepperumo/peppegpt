@@ -19,9 +19,13 @@ class GraphSelector:
     
     def __init__(self):
         # Environment variable to force enable/disable graph for all documents
-        self.force_mode = os.getenv("GRAPH_MODE", "auto").lower()  # auto, always, never
-        
-        # Minimum criteria for graph processing
+        # Options: auto, always, never, folder-only
+        self.force_mode = os.getenv("GRAPH_MODE", "folder-only").lower()
+
+        # Folder name that triggers graph processing (case-insensitive)
+        self.graph_folder_name = os.getenv("GRAPH_FOLDER_NAME", "graph-rag").lower()
+
+        # Minimum criteria for graph processing (used in auto mode)
         self.min_chunk_count = int(os.getenv("GRAPH_MIN_CHUNKS", "3"))  # Don't graph tiny docs
         self.entity_threshold = int(os.getenv("GRAPH_ENTITY_THRESHOLD", "5"))  # Min entities to detect
         self.relationship_threshold = float(os.getenv("GRAPH_RELATIONSHIP_THRESHOLD", "0.15"))  # % of text with relationships
@@ -52,6 +56,13 @@ class GraphSelector:
             return True, "GRAPH_MODE=always (environment override)"
         elif self.force_mode == "never":
             return False, "GRAPH_MODE=never (environment override)"
+        elif self.force_mode == "folder-only":
+            # Only use graph if file is in the graph-rag folder
+            is_in_graph_folder = self._is_in_graph_folder(file_title, file_metadata)
+            if is_in_graph_folder:
+                return True, f"File is in '{self.graph_folder_name}' folder"
+            else:
+                return False, f"GRAPH_MODE=folder-only: File not in '{self.graph_folder_name}' folder"
         
         # Rule 1: Document size check
         if len(chunks) < self.min_chunk_count:
@@ -182,8 +193,47 @@ class GraphSelector:
         
         # Normalize to 0-1 range (assume 10 matches per 1000 chars = high density)
         normalized_density = min(density / 10, 1.0)
-        
+
         return normalized_density
+
+    def _is_in_graph_folder(self, file_title: str, file_metadata: Optional[dict]) -> bool:
+        """
+        Check if the file is in a folder named 'graph-rag' (or configured folder name).
+
+        Works with:
+        - Google Drive: checks 'folder_path' or 'parent_folder' in metadata
+        - Local files: checks if file path contains the folder name
+        - Web sources: checks if URL contains the folder name
+        """
+        folder_name = self.graph_folder_name
+
+        # Check file_metadata for folder information
+        if file_metadata:
+            # Google Drive folder path
+            folder_path = file_metadata.get('folder_path', '').lower()
+            if folder_name in folder_path:
+                return True
+
+            # Parent folder name
+            parent_folder = file_metadata.get('parent_folder', '').lower()
+            if folder_name in parent_folder:
+                return True
+
+            # File URL (for web sources or drive links)
+            url = file_metadata.get('url', '').lower()
+            if folder_name in url:
+                return True
+
+            # File path (for local files)
+            file_path = file_metadata.get('file_path', '').lower()
+            if folder_name in file_path:
+                return True
+
+        # Check file title as fallback (some systems include path in title)
+        if folder_name in file_title.lower():
+            return True
+
+        return False
 
 
 # Global instance

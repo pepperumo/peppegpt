@@ -130,8 +130,9 @@ class GraphBuilder:
                     document_metadata
                 )
 
-                # Create source description (shorter)
-                source_description = f"Document: {document_title} (Chunk: {i})"
+                # Create source description - includes file_id for deletion tracking
+                # Format: "source_id:{file_id}|Document: {title} (Chunk: {i})"
+                source_description = f"source_id:{document_source}|Document: {document_title} (Chunk: {i})"
 
                 # Create human-readable display name for graph visualization
                 # Format: "Document Title (Chunk N)" - truncated if too long
@@ -254,10 +255,11 @@ class GraphBuilder:
         if self._graph_available and self.graph_client:
             try:
                 logger.info(f"Deleting graph data for document: {document_source}")
-                
-                # Delete episodes with matching document_source metadata
-                await self.graph_client.delete_episodes_by_metadata("document_source", document_source)
-                
+
+                # Delete episodes by source_id (stored in source_description field)
+                # Format: "source_id:{file_id}|Document: {title} (Chunk: {i})"
+                await self.graph_client.delete_episodes_by_source_id(document_source)
+
                 logger.info(f"Successfully deleted graph data for document: {document_source}")
             except Exception as e:
                 logger.error(f"Error deleting graph data for {document_source}: {e}")

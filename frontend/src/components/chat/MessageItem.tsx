@@ -130,9 +130,11 @@ export const MessageItem = ({ message, isLastMessage = false }: MessageItemProps
         "group"
       )}>
         {!isUser && (
-          <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground shrink-0 mt-1">
-            AI
-          </div>
+          <img
+            src="/giuseppe-avatar.jpg"
+            alt="Giuseppe"
+            className="h-8 w-8 rounded-full object-cover shrink-0 mt-1"
+          />
         )}
         
         <div className={cn(

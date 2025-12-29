@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import Login from "./pages/Login";
 import Chat from "./pages/Chat";
+import GuestChat from "./pages/GuestChat";
 import Admin from "./pages/Admin";
 import WebSources from "./pages/WebSources";
 import NotFound from "./pages/NotFound";
@@ -16,10 +17,10 @@ import { useEffect } from "react";
 
 const queryClient = new QueryClient();
 
-// Protected route component
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useAuth();
-  
+// Protected route component (allows guests)
+const ProtectedRoute = ({ children, guestAllowed = false }: { children: React.ReactNode, guestAllowed?: boolean }) => {
+  const { user, loading, isGuest } = useAuth();
+
   // Show loading state
   if (loading) {
     return (
@@ -28,31 +29,40 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       </div>
     );
   }
-  
+
+  // Allow access if guest mode is enabled and route allows guests
+  if (isGuest && guestAllowed) {
+    return <>{children}</>;
+  }
+
   // Redirect to login if not authenticated
   if (!user) {
     return <Navigate to="/login" />;
   }
-  
+
   return <>{children}</>;
 };
 
 const AppRoutes = () => {
-  const { user } = useAuth();
-  
+  const { user, isGuest } = useAuth();
+
   return (
     <Routes>
-      <Route 
-        path="/login" 
-        element={user ? <Navigate to="/" /> : <Login />} 
+      <Route
+        path="/login"
+        element={(user || isGuest) ? <Navigate to="/" /> : <Login />}
       />
-      <Route 
-        path="/" 
+      <Route
+        path="/"
         element={
-          <ProtectedRoute>
-            <Chat />
-          </ProtectedRoute>
-        } 
+          isGuest ? (
+            <GuestChat />
+          ) : (
+            <ProtectedRoute>
+              <Chat />
+            </ProtectedRoute>
+          )
+        }
       />
       <Route
         path="/admin"

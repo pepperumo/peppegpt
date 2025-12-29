@@ -70,7 +70,7 @@ services:
       - LLM_API_KEY=${LLM_API_KEY}
       - LLM_CHOICE=${LLM_CHOICE:-gpt-4o-mini}
       # Intelligent Graph Selection Configuration
-      - GRAPH_MODE=${GRAPH_MODE:-always}  # auto (smart selection), always (all docs), never (disable)
+      - GRAPH_MODE=${GRAPH_MODE:-folder-only}  # folder-only (only graph-rag folder), auto (smart selection), always (all docs), never (disable)
       - GRAPH_MIN_CHUNKS=${GRAPH_MIN_CHUNKS:-3}  # Minimum chunks for graph processing
       - GRAPH_ENTITY_THRESHOLD=${GRAPH_ENTITY_THRESHOLD:-5}  # Minimum entities to detect
       - GRAPH_RELATIONSHIP_THRESHOLD=${GRAPH_RELATIONSHIP_THRESHOLD:-0.15}  # Min relationship density

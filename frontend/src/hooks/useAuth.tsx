@@ -12,11 +12,14 @@ interface AuthContextType {
   session: Session | null;
   user: User | null;
   loading: boolean;
+  isGuest: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string) => Promise<{ error: Error | null, data: unknown }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
+  enterGuestMode: () => void;
+  exitGuestMode: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -25,6 +28,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isGuest, setIsGuest] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -138,11 +142,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   const signOut = async () => {
+    setIsGuest(false);
     await supabase.auth.signOut();
     toast({
       title: "Signed out",
       description: "You have been signed out.",
     });
+  };
+
+  const enterGuestMode = () => {
+    setIsGuest(true);
+  };
+
+  const exitGuestMode = () => {
+    setIsGuest(false);
   };
 
   const resetPassword = async (email: string) => {
@@ -168,11 +181,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     session,
     user,
     loading,
+    isGuest,
     signIn,
     signInWithGoogle,
     signUp,
     signOut,
-    resetPassword
+    resetPassword,
+    enterGuestMode,
+    exitGuestMode
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

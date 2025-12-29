@@ -5,11 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
-import { Loader } from 'lucide-react';
+import { Loader, UserCircle } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 
 export const AuthForm = () => {
-  const { signIn, signUp, signInWithGoogle } = useAuth();
+  const { signIn, signUp, signInWithGoogle, enterGuestMode } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -99,10 +99,10 @@ export const AuthForm = () => {
                 <Separator className="flex-1" />
               </div>
               
-              <Button 
-                type="button" 
-                variant="outline" 
-                className="w-full" 
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
                 onClick={handleGoogleSignIn}
                 disabled={loading}
               >
@@ -130,6 +130,23 @@ export const AuthForm = () => {
                   </svg>
                 )}
                 Sign in with Google
+              </Button>
+
+              <div className="flex items-center">
+                <Separator className="flex-1" />
+                <span className="mx-2 text-xs text-muted-foreground">OR</span>
+                <Separator className="flex-1" />
+              </div>
+
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full"
+                onClick={enterGuestMode}
+                disabled={loading}
+              >
+                <UserCircle className="mr-2 h-4 w-4" />
+                Try as Guest
               </Button>
             </CardFooter>
           </form>

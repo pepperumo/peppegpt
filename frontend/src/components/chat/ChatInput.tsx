@@ -57,6 +57,13 @@ export const ChatInput = ({ onSendMessage, isLoading }: ChatInputProps) => {
     }
   }, []);
 
+  // Auto-focus the textarea on mount and after sending a message
+  useEffect(() => {
+    if (!isLoading && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [isLoading]);
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
     if (!selectedFiles) return;
@@ -148,6 +155,7 @@ export const ChatInput = ({ onSendMessage, isLoading }: ChatInputProps) => {
           onChange={(e) => setMessage(e.target.value.slice(0, 4000))} // Limit to 4000 chars
           onKeyDown={handleKeyDown}
           placeholder={files.length > 0 ? "Add a message or send files..." : "Message the AI..."}
+          autoFocus
           className="min-h-[56px] max-h-[200px] resize-none border-0 py-3 px-3 pr-36 focus-visible:ring-0 focus-visible:ring-offset-0"
           style={{ 
             height: 'auto',

@@ -223,63 +223,78 @@ class GoogleDriveWatcher:
         
         return creds
     
-    def get_folder_contents(self, folder_id: str, time_str: str) -> List[Dict[str, Any]]:
+    def get_folder_contents(self, folder_id: str, time_str: str = None, folder_path: str = "") -> List[Dict[str, Any]]:
         """
         Get all files and subfolders in a folder that have been modified or created after the specified time.
-        
+
         Args:
             folder_id: The ID of the folder to check
-            time_str: The time string in RFC 3339 format
-            
+            time_str: The time string in RFC 3339 format (if None, get ALL files)
+            folder_path: The path of parent folders (for tracking folder hierarchy)
+
         Returns:
-            List of files and folders with their metadata
+            List of files and folders with their metadata (including folder_path)
         """
-        # Query for files in this folder that were modified OR created after the specified time
-        query = f"(modifiedTime > '{time_str}' or createdTime > '{time_str}') and '{folder_id}' in parents"
-        
+        # Query for files in this folder
+        if time_str:
+            # Normal mode: only files modified/created after time_str
+            query = f"(modifiedTime > '{time_str}' or createdTime > '{time_str}') and '{folder_id}' in parents"
+        else:
+            # First run mode: get ALL files
+            query = f"'{folder_id}' in parents"
+
         results = self.service.files().list(
             q=query,
             pageSize=100,
             fields="nextPageToken, files(id, name, mimeType, webViewLink, modifiedTime, createdTime, trashed)"
         ).execute()
-        
+
         items = results.get('files', [])
-        
+
+        # Add folder_path to each file for graph selection (to detect graph-rag folder)
+        for item in items:
+            item['folder_path'] = folder_path
+
         # Find all subfolders in this folder (regardless of modification time)
         folder_query = f"'{folder_id}' in parents and mimeType = 'application/vnd.google-apps.folder'"
         folder_results = self.service.files().list(
             q=folder_query,
             pageSize=100,
-            fields="files(id)"
+            fields="files(id, name)"
         ).execute()
-        
+
         subfolders = folder_results.get('files', [])
-        
+
         # Recursively get contents of each subfolder
         for subfolder in subfolders:
-            subfolder_items = self.get_folder_contents(subfolder['id'], time_str)
+            # Build the path for subfolders: parent_path/subfolder_name
+            subfolder_name = subfolder.get('name', '')
+            child_path = f"{folder_path}/{subfolder_name}" if folder_path else subfolder_name
+            subfolder_items = self.get_folder_contents(subfolder['id'], time_str, child_path)
             items.extend(subfolder_items)
-        
+
         return items
     
     def get_changes(self) -> List[Dict[str, Any]]:
         """
         Get changes in Google Drive since the last check.
-        
+
         Returns:
             List of changed files with their metadata
         """
         if not self.service:
             self.authenticate()
-        
+
         # Convert last_check_time to RFC 3339 format
         time_str = self.last_check_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
-        
+
         files = []
-        
+
         # If a specific folder is specified, recursively get all files in that folder and its subfolders
         if self.folder_id:
-            files = self.get_folder_contents(self.folder_id, time_str)
+            # Get the root folder name to use as the base of the folder path
+            root_folder_name = self._get_folder_name(self.folder_id)
+            files = self.get_folder_contents(self.folder_id, time_str, folder_path=root_folder_name)
         else:
             # If no folder is specified, get all files in the drive that were modified OR created after the specified time
             query = f"modifiedTime > '{time_str}' or createdTime > '{time_str}'"
@@ -288,16 +303,23 @@ class GoogleDriveWatcher:
                 pageSize=100,
                 fields="nextPageToken, files(id, name, mimeType, webViewLink, modifiedTime, createdTime, trashed)"
             ).execute()
-            
+
             files = results.get('files', [])
-        
-        # Update the last check time
-        self.last_check_time = datetime.now(timezone.utc)
-        
-        # Save the updated last check time to config
-        self.save_last_check_time()
-        
+            # For files without a specific folder, we don't track folder_path
+
+        # DON'T update last_check_time here - it's updated after successful processing
+        # to ensure interrupted processing gets retried on restart
+
         return files
+
+    def _get_folder_name(self, folder_id: str) -> str:
+        """Get the name of a folder by its ID."""
+        try:
+            folder = self.service.files().get(fileId=folder_id, fields="name").execute()
+            return folder.get('name', '')
+        except Exception as e:
+            print(f"Warning: Could not get folder name for {folder_id}: {e}")
+            return ""
     
     def download_file(self, file_id: str, mime_type: str) -> Optional[bytes]:
         """
@@ -349,16 +371,17 @@ class GoogleDriveWatcher:
     def process_file(self, file: Dict[str, Any]) -> None:
         """
         Process a file for the RAG pipeline.
-        
+
         Args:
-            file: The file metadata from Google Drive
+            file: The file metadata from Google Drive (includes folder_path for graph selection)
         """
         file_id = file['id']
         file_name = file['name']
         mime_type = file['mimeType']
         web_view_link = file.get('webViewLink', '')
         is_trashed = file.get('trashed', False)
-        
+        folder_path = file.get('folder_path', '')  # For graph-rag folder detection
+
         # Check if the file is in the trash
         if is_trashed:
             print(f"File '{file_name}' (ID: {file_id}) has been trashed. Removing from database...")
@@ -366,13 +389,13 @@ class GoogleDriveWatcher:
             if file_id in self.known_files:
                 del self.known_files[file_id]
             return
-        
+
         # Skip unsupported file types
         supported_mime_types = self.config.get('supported_mime_types', [])
         if mime_type not in supported_mime_types:
             print(f"Skipping unsupported file type: {mime_type}")
             return
-        
+
         # Determine the MIME type we will process after any export step
         export_mime_types = self.config.get('export_mime_types', {})
         processing_mime_type = export_mime_types.get(mime_type, mime_type)
@@ -382,14 +405,14 @@ class GoogleDriveWatcher:
         if not file_content:
             print(f"Failed to download file '{file_name}' (ID: {file_id})")
             return
-        
+
         # Extract text from the file
         text = extract_text_from_file(file_content, processing_mime_type, file_name, self.config)
         if not text:
             print(f"No text could be extracted from file '{file_name}' (ID: {file_id})")
             return
-        
-        # Process the file for RAG
+
+        # Process the file for RAG (pass folder_path for graph selection)
         success = process_file_for_rag(
             file_content,
             text,
@@ -397,7 +420,8 @@ class GoogleDriveWatcher:
             web_view_link,
             file_name,
             processing_mime_type,
-            self.config
+            self.config,
+            folder_path  # For graph-rag folder detection
         )
         
         # Update the known files dictionary
@@ -494,20 +518,64 @@ class GoogleDriveWatcher:
             # Initial scan to build the known_files dictionary and process any changes since last check
             if not self.initialized:
                 print("Performing initial scan of files...")
-                # Get all files in the watched folder that have changed since last check
-                time_str = self.last_check_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
-                if self.folder_id:
-                    changed_files = self.get_folder_contents(self.folder_id, time_str)
-                else:
-                    # If watching all of Drive, get files changed since last check
-                    query = f"modifiedTime > '{time_str}' or createdTime > '{time_str}'"
-                    results = self.service.files().list(
-                        q=query,
-                        pageSize=1000,
-                        fields="nextPageToken, files(id, name, mimeType, webViewLink, modifiedTime, createdTime, trashed)"
-                    ).execute()
-                    changed_files = results.get('files', [])
                 
+                # Check if this is truly the first run (no known_files tracked yet)
+                # If so, scan ALL files to catch anything that was never processed
+                is_first_run = len(self.known_files) == 0
+                
+                if is_first_run:
+                    print("First run detected - scanning ALL files in folder...")
+                    # Scan all files (no time filter)
+                    if self.folder_id:
+                        root_folder_name = self._get_folder_name(self.folder_id)
+                        # Pass None for time_str to get ALL files
+                        changed_files = self.get_folder_contents(self.folder_id, None, folder_path=root_folder_name)
+                    else:
+                        # Get all files in Drive (no time filter)
+                        results = self.service.files().list(
+                            pageSize=1000,
+                            fields="nextPageToken, files(id, name, mimeType, webViewLink, modifiedTime, createdTime, trashed)"
+                        ).execute()
+                        changed_files = results.get('files', [])
+                else:
+                    print("Checking for files modified since last check...")
+                    # Normal scan - only files changed since last check
+                    time_str = self.last_check_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+                    if self.folder_id:
+                        root_folder_name = self._get_folder_name(self.folder_id)
+                        changed_files = self.get_folder_contents(self.folder_id, time_str, folder_path=root_folder_name)
+                    else:
+                        query = f"modifiedTime > '{time_str}' or createdTime > '{time_str}'"
+                        results = self.service.files().list(
+                            q=query,
+                            pageSize=1000,
+                            fields="nextPageToken, files(id, name, mimeType, webViewLink, modifiedTime, createdTime, trashed)"
+                        ).execute()
+                        changed_files = results.get('files', [])
+
+                    # Also check for files NOT in known_files (catches edge cases like copies)
+                    if self.folder_id:
+                        all_files = self.get_folder_contents(self.folder_id, None, folder_path=root_folder_name)
+                    else:
+                        all_results = self.service.files().list(
+                            pageSize=1000,
+                            fields="nextPageToken, files(id, name, mimeType, webViewLink, modifiedTime, createdTime, trashed)"
+                        ).execute()
+                        all_files = all_results.get('files', [])
+
+                    known_ids = set(self.known_files.keys())
+                    changed_ids = set(f['id'] for f in changed_files)
+
+                    for file in all_files:
+                        file_id = file['id']
+                        if (file.get('mimeType') == 'application/vnd.google-apps.folder' or
+                            file.get('trashed', False) or
+                            file_id in known_ids or
+                            file_id in changed_ids):
+                            continue
+                        print(f"Found unknown file not in known_files: {file.get('name')} - adding to queue")
+                        changed_files.append(file)
+
                 # Process files that have changed since last check
                 print(f"Found {len(changed_files)} files modified since last check during initialization.")
                 for file in changed_files:
@@ -522,10 +590,9 @@ class GoogleDriveWatcher:
                             print(f"Error processing file {file.get('name', 'Unknown')} during initialization: {e}")
                             stats['errors'] += 1
                 
-                # Update last_check_time to now (same as get_changes() would do)
+                # Update last_check_time AFTER successful processing
+                # This ensures interrupted processing gets retried on restart
                 self.last_check_time = datetime.now(timezone.utc)
-                # Save the updated last check time
-                self.save_last_check_time()
                 
                 print(f"Processed {stats['files_processed']} files during initialization.")
                 self.initialized = True
@@ -536,7 +603,36 @@ class GoogleDriveWatcher:
             else:
                 # Get changes since the last check (only for subsequent runs)
                 changed_files = self.get_changes()
-            
+
+                # Also check for files NOT in known_files (catches edge cases like copies)
+                # This ensures we don't miss files that somehow weren't detected by time filter
+                if self.folder_id:
+                    root_folder_name = self._get_folder_name(self.folder_id)
+                    all_files = self.get_folder_contents(self.folder_id, None, folder_path=root_folder_name)
+                else:
+                    results = self.service.files().list(
+                        pageSize=1000,
+                        fields="nextPageToken, files(id, name, mimeType, webViewLink, modifiedTime, createdTime, trashed, parents)"
+                    ).execute()
+                    all_files = results.get('files', [])
+
+                # Find files not in known_files (new files we missed)
+                known_ids = set(self.known_files.keys())
+                changed_ids = set(f['id'] for f in changed_files)
+
+                for file in all_files:
+                    file_id = file['id']
+                    # Skip folders, trashed files, and already-detected files
+                    if (file.get('mimeType') == 'application/vnd.google-apps.folder' or
+                        file.get('trashed', False) or
+                        file_id in known_ids or
+                        file_id in changed_ids):
+                        continue
+
+                    # This file exists but isn't in known_files - process it
+                    print(f"Found unknown file not in known_files: {file.get('name')} - adding to queue")
+                    changed_files.append(file)
+
             # Check for deleted files
             deleted_file_ids = self.check_for_deleted_files()
             
@@ -568,6 +664,11 @@ class GoogleDriveWatcher:
                     except Exception as e:
                         print(f"Error deleting file {file_id}: {e}")
                         stats['errors'] += 1
+            
+            # Update last_check_time AFTER successful processing (non-initialization runs)
+            # This ensures interrupted processing gets retried on restart
+            if not stats['initialized']:  # Only update if this wasn't the initialization run
+                self.last_check_time = datetime.now(timezone.utc)
             
             # Calculate duration
             stats['duration'] = time.time() - start_time

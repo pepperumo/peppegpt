@@ -96,7 +96,7 @@ export const ChatSidebar = ({
     <div className="bg-sidebar h-full w-72 border-r flex flex-col">
       <div className="flex items-center justify-between p-4">
         <div className="text-sidebar-foreground font-semibold flex items-center">
-          <MessageSquare className="mr-2 h-5 w-5" />
+          <img src="/giuseppe-avatar.jpg" alt="Giuseppe" className="mr-2 h-7 w-7 rounded-full object-cover" />
           PeppeGPT
         </div>
         <Button variant="ghost" size="icon" onClick={onToggleSidebar}>

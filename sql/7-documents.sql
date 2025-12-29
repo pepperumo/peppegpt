@@ -13,7 +13,8 @@ CREATE TABLE IF NOT EXISTS documents (
 CREATE OR REPLACE FUNCTION match_documents (
   query_embedding vector(1536), -- 1536 works for OpenAI embeddings, change if needed like 768 for nomic-embed-text (Ollama)
   match_count int default null,
-  filter jsonb DEFAULT '{}'
+  filter jsonb DEFAULT '{}',
+  match_threshold float default 0.5 -- Minimum similarity threshold (0.5 = 50% match)
 ) returns table (
   id bigint,
   content text,
@@ -32,6 +33,7 @@ begin
     1 - (documents.embedding <=> query_embedding) as similarity
   from documents
   where metadata @> filter
+    and 1 - (documents.embedding <=> query_embedding) > match_threshold
   order by documents.embedding <=> query_embedding
   limit match_count;
 end;

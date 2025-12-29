@@ -130,11 +130,14 @@ async def retrieve_relevant_documents_tool(supabase: Client, embedding_client: A
         query_embedding = await get_embedding(user_query, embedding_client)
 
         # Query Supabase for relevant documents
+        # Explicitly pass all parameters to avoid PostgREST function overloading issues
         result = supabase.rpc(
             'match_documents',
             {
                 'query_embedding': query_embedding,
-                'match_count': 4
+                'match_count': 4,
+                'filter': {},
+                'match_threshold': 0.5
             }
         ).execute()
 

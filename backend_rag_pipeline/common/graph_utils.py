@@ -371,7 +371,7 @@ class GraphitiClient:
         """
         Delete all episodes (and their associated nodes/edges) that match the given metadata.
         Also deletes Entity nodes that are only connected to these episodes (orphaned entities).
-        
+
         Args:
             metadata_key: The metadata key to filter by (e.g., "document_source")
             metadata_value: The metadata value to match (e.g., file_id)
@@ -389,10 +389,10 @@ class GraphitiClient:
                 MATCH (e:Episodic)-[r]-(entity:Entity)
                 WHERE e.`{key}` = $value
                 WITH entity, collect(DISTINCT e) as connected_episodes
-                RETURN entity.uuid as entity_uuid, 
+                RETURN entity.uuid as entity_uuid,
                        size(connected_episodes) as episode_count
                 """.format(key=metadata_key)
-                
+
                 result = await session.run(find_entities_query, value=metadata_value)
                 entities_to_check = []
                 async for record in result:
@@ -400,9 +400,9 @@ class GraphitiClient:
                         'uuid': record['entity_uuid'],
                         'episode_count': record['episode_count']
                     })
-                
+
                 logger.info(f"Found {len(entities_to_check)} entities connected to episodes with {metadata_key}={metadata_value}")
-                
+
                 # Step 2: Delete episodes with matching metadata and their direct relationships
                 delete_episodes_query = """
                 MATCH (e:Episodic)
@@ -411,12 +411,12 @@ class GraphitiClient:
                 DELETE r, e
                 RETURN count(e) as deleted_count
                 """.format(key=metadata_key)
-                
+
                 result = await session.run(delete_episodes_query, value=metadata_value)
                 record = await result.single()
                 deleted_episodes = record["deleted_count"] if record else 0
                 logger.info(f"Deleted {deleted_episodes} episodes for {metadata_key}={metadata_value}")
-                
+
                 # Step 3: Delete Entity nodes that are now orphaned (no remaining connections)
                 deleted_entities = 0
                 for entity_info in entities_to_check:
@@ -430,18 +430,170 @@ class GraphitiClient:
                     DELETE r, entity
                     RETURN count(entity) as deleted
                     """
-                    
+
                     result = await session.run(check_query, uuid=entity_info['uuid'])
                     record = await result.single()
                     if record and record['deleted'] > 0:
                         deleted_entities += 1
-                
+
                 logger.info(f"Deleted {deleted_entities} orphaned entities for {metadata_key}={metadata_value}")
                 logger.info(f"Total cleanup: {deleted_episodes} episodes + {deleted_entities} entities")
-                
+
         except Exception as e:
             logger.error(f"Failed to delete episodes by metadata: {e}")
             raise
+
+    async def delete_episodes_by_source_id(self, source_id: str):
+        """
+        Delete all episodes that have the given source_id in their source_description.
+        The source_description format is: "source_id:{file_id}|Document: {title} (Chunk: {i})"
+
+        Args:
+            source_id: The file_id/document_source to delete
+        """
+        if not self._initialized:
+            await self.initialize()
+
+        if not self.graphiti:
+            raise RuntimeError("Graphiti client not initialized")
+
+        search_pattern = f"source_id:{source_id}|"
+
+        try:
+            async with self.graphiti.driver.session() as session:
+                # Step 1: Find entities connected to episodes we're about to delete
+                find_entities_query = """
+                MATCH (e:Episodic)-[r]-(entity:Entity)
+                WHERE e.source_description STARTS WITH $pattern
+                WITH entity, collect(DISTINCT e) as connected_episodes
+                RETURN entity.uuid as entity_uuid,
+                       size(connected_episodes) as episode_count
+                """
+
+                result = await session.run(find_entities_query, pattern=search_pattern)
+                entities_to_check = []
+                async for record in result:
+                    entities_to_check.append({
+                        'uuid': record['entity_uuid'],
+                        'episode_count': record['episode_count']
+                    })
+
+                logger.info(f"Found {len(entities_to_check)} entities connected to episodes with source_id={source_id}")
+
+                # Step 2: Delete episodes with matching source_description
+                delete_episodes_query = """
+                MATCH (e:Episodic)
+                WHERE e.source_description STARTS WITH $pattern
+                OPTIONAL MATCH (e)-[r]-()
+                DELETE r, e
+                RETURN count(e) as deleted_count
+                """
+
+                result = await session.run(delete_episodes_query, pattern=search_pattern)
+                record = await result.single()
+                deleted_episodes = record["deleted_count"] if record else 0
+                logger.info(f"Deleted {deleted_episodes} episodes for source_id={source_id}")
+
+                # Step 3: Delete orphaned Entity nodes
+                deleted_entities = 0
+                for entity_info in entities_to_check:
+                    check_query = """
+                    MATCH (entity:Entity {uuid: $uuid})
+                    OPTIONAL MATCH (entity)--(other:Episodic)
+                    WITH entity, count(other) as remaining_connections
+                    WHERE remaining_connections = 0
+                    OPTIONAL MATCH (entity)-[r]-()
+                    DELETE r, entity
+                    RETURN count(entity) as deleted
+                    """
+
+                    result = await session.run(check_query, uuid=entity_info['uuid'])
+                    record = await result.single()
+                    if record and record['deleted'] > 0:
+                        deleted_entities += 1
+
+                logger.info(f"Deleted {deleted_entities} orphaned entities for source_id={source_id}")
+                logger.info(f"Total cleanup: {deleted_episodes} episodes + {deleted_entities} entities")
+
+        except Exception as e:
+            logger.error(f"Failed to delete episodes by source_id: {e}")
+            raise
+
+    async def get_all_source_ids(self) -> List[str]:
+        """
+        Get all unique source_ids from Neo4j episodes.
+        Extracts file_id from source_description format: "source_id:{file_id}|..."
+
+        Returns:
+            List of unique source_ids (file_ids)
+        """
+        if not self._initialized:
+            await self.initialize()
+
+        if not self.graphiti:
+            raise RuntimeError("Graphiti client not initialized")
+
+        try:
+            async with self.graphiti.driver.session() as session:
+                query = """
+                MATCH (e:Episodic)
+                WHERE e.source_description STARTS WITH 'source_id:'
+                WITH e.source_description as desc
+                WITH split(desc, '|')[0] as source_part
+                WITH replace(source_part, 'source_id:', '') as source_id
+                RETURN DISTINCT source_id
+                """
+                result = await session.run(query)
+                source_ids = []
+                async for record in result:
+                    if record['source_id']:
+                        source_ids.append(record['source_id'])
+                return source_ids
+
+        except Exception as e:
+            logger.error(f"Failed to get source_ids from Neo4j: {e}")
+            return []
+
+    async def cleanup_orphaned_episodes(self, valid_source_ids: List[str]) -> Dict[str, int]:
+        """
+        Delete episodes whose source_id is not in the valid_source_ids list.
+        This cleans up orphan data when files are deleted from the main database.
+
+        Args:
+            valid_source_ids: List of source_ids that should remain (from Supabase)
+
+        Returns:
+            Dict with deleted_episodes and deleted_entities counts
+        """
+        if not self._initialized:
+            await self.initialize()
+
+        if not self.graphiti:
+            raise RuntimeError("Graphiti client not initialized")
+
+        # Get all source_ids currently in Neo4j
+        neo4j_source_ids = await self.get_all_source_ids()
+        logger.info(f"Found {len(neo4j_source_ids)} source_ids in Neo4j")
+
+        # Find orphaned source_ids (in Neo4j but not in valid list)
+        orphaned_ids = set(neo4j_source_ids) - set(valid_source_ids)
+        logger.info(f"Found {len(orphaned_ids)} orphaned source_ids to clean up")
+
+        total_deleted_episodes = 0
+        total_deleted_entities = 0
+
+        for source_id in orphaned_ids:
+            try:
+                logger.info(f"Cleaning up orphaned data for source_id: {source_id}")
+                await self.delete_episodes_by_source_id(source_id)
+                # Count is logged inside delete_episodes_by_source_id
+            except Exception as e:
+                logger.error(f"Failed to cleanup source_id {source_id}: {e}")
+
+        return {
+            "orphaned_source_ids": len(orphaned_ids),
+            "source_ids_cleaned": list(orphaned_ids)
+        }
 
     async def clear_graph(self):
         """Clear all data from the graph (USE WITH CAUTION)."""
@@ -594,3 +746,30 @@ async def test_graph_connection() -> bool:
     except Exception as e:
         logger.error(f"Graph connection test failed: {e}")
         return False
+
+
+async def cleanup_orphaned_graph_data(valid_file_ids: List[str]) -> Optional[Dict[str, Any]]:
+    """
+    Clean up orphaned graph data that no longer has corresponding entries in Supabase.
+    Call this on pipeline startup to sync Neo4j with the main database.
+
+    Args:
+        valid_file_ids: List of file_ids that exist in Supabase document_metadata
+
+    Returns:
+        Cleanup results or None if graph unavailable
+    """
+    try:
+        client = await get_graph_client()
+        if not client:
+            logger.info("Graph client not available - skipping orphan cleanup")
+            return None
+
+        logger.info("Starting orphaned graph data cleanup...")
+        result = await client.cleanup_orphaned_episodes(valid_file_ids)
+        logger.info(f"Orphan cleanup complete: {result}")
+        return result
+
+    except Exception as e:
+        logger.error(f"Failed to cleanup orphaned graph data: {e}")
+        return None

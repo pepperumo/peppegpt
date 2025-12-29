@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { MessageList } from '@/components/chat/MessageList';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { ChatSidebar } from '@/components/sidebar/ChatSidebar';
+import { ProjectInfoPanel } from '@/components/chat/ProjectInfoPanel';
 import { AlertCircle, Menu } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Message, Conversation } from '@/types/database.types';
@@ -128,21 +129,24 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   if (isMobile) {
     return (
       <div className="flex h-screen bg-background flex-col overflow-hidden">
-        <div className="flex items-center h-14 border-b px-4">
-          <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="mr-2">
-                <Menu className="h-5 w-5" />
-                <span className="sr-only">Open sidebar</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-[280px]" showCloseButton={false}>
-              {renderSidebar()}
-            </SheetContent>
-          </Sheet>
-          <div className="font-semibold">
-            {selectedConversation?.title || "New Chat"}
+        <div className="flex items-center justify-between h-14 border-b px-4">
+          <div className="flex items-center">
+            <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="mr-2">
+                  <Menu className="h-5 w-5" />
+                  <span className="sr-only">Open sidebar</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="p-0 w-[280px]" showCloseButton={false}>
+                {renderSidebar()}
+              </SheetContent>
+            </Sheet>
+            <div className="font-semibold">
+              {selectedConversation?.title || "New Chat"}
+            </div>
           </div>
+          <ProjectInfoPanel />
         </div>
         {renderChatContent()}
       </div>
@@ -153,7 +157,16 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
   return (
     <div className="flex h-screen bg-background overflow-hidden">
       {renderSidebar()}
-      {renderChatContent()}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Desktop header with info button */}
+        <div className="flex items-center justify-between h-12 border-b px-4">
+          <div className="font-semibold text-sm text-muted-foreground">
+            {selectedConversation?.title || "New Chat"}
+          </div>
+          <ProjectInfoPanel />
+        </div>
+        {renderChatContent()}
+      </div>
     </div>
   );
 };

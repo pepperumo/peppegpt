@@ -112,9 +112,10 @@ class WebSourcesProcessor:
         Process all pending web sources and sources due for re-crawl.
 
         This method:
-        1. Queries web_sources for status='pending' OR scheduled re-crawls that are due
-        2. Processes each source
-        3. Returns aggregated results
+        1. Cleans up orphaned chunks (from deleted web sources)
+        2. Queries web_sources for status='pending' OR scheduled re-crawls that are due
+        3. Processes each source
+        4. Returns aggregated results
 
         Returns:
             ProcessingResult with statistics about the processing
@@ -123,6 +124,11 @@ class WebSourcesProcessor:
         result = ProcessingResult()
 
         try:
+            # First, cleanup any orphaned chunks from deleted web sources
+            orphans_cleaned = await self.cleanup_orphaned_chunks()
+            if orphans_cleaned > 0:
+                print(f"✓ Cleaned up {orphans_cleaned} deleted web source(s)")
+
             # Get pending sources
             pending_sources = self._get_pending_sources()
 
@@ -131,7 +137,7 @@ class WebSourcesProcessor:
                 result.duration_seconds = (datetime.now(timezone.utc) - start_time).total_seconds()
                 return result
 
-            print(f"Found {len(pending_sources)} web sources to process")
+            print(f"Found {len(pending_sources)} web sources to process", flush=True)
 
             # Process each source
             for source in pending_sources:
@@ -139,7 +145,7 @@ class WebSourcesProcessor:
                     source_id = source['id']
                     url = source['url']
 
-                    print(f"Processing web source: {url} (ID: {source_id})")
+                    print(f"Processing web source: {url} (ID: {source_id})", flush=True)
 
                     success = await self.process_single_source(source_id)
 
@@ -210,7 +216,7 @@ class WebSourcesProcessor:
             await self.delete_source_content(source_id)
 
             # Crawl the URL
-            print(f"Crawling URL: {url} (depth: {crawl_depth})")
+            print(f"Crawling URL: {url} (depth: {crawl_depth})", flush=True)
             crawl_result = await self.crawler.crawl_url(url, depth=crawl_depth)
 
             if not crawl_result.success:
@@ -229,7 +235,7 @@ class WebSourcesProcessor:
             title = crawl_result.title or url
             content = crawl_result.content
 
-            print(f"Crawled {url}: {len(content)} chars, title: '{title}'")
+            print(f"Crawled {url}: {len(content)} chars, title: '{title}'", flush=True)
 
             # Chunk the content
             chunks = chunk_text(content, chunk_size=self.chunk_size, overlap=self.chunk_overlap)
@@ -240,7 +246,7 @@ class WebSourcesProcessor:
                 self._update_source_error(source_id, error_msg)
                 return False
 
-            print(f"Created {len(chunks)} chunks for {url}")
+            print(f"Created {len(chunks)} chunks for {url}", flush=True)
 
             # Create embeddings
             embeddings = create_embeddings(chunks)
@@ -296,7 +302,7 @@ class WebSourcesProcessor:
             # Update source status to completed
             self._update_source_completed(source_id, title, len(chunks))
 
-            print(f"Successfully processed web source: {url} ({len(chunks)} chunks)")
+            print(f"Successfully processed web source: {url} ({len(chunks)} chunks)", flush=True)
             return True
 
         except Exception as e:
@@ -373,6 +379,44 @@ class WebSourcesProcessor:
             print(f"Error deleting content for source {source_id}: {e}")
             traceback.print_exc()
             return False
+
+    async def cleanup_orphaned_chunks(self) -> int:
+        """
+        Find and delete orphaned web source chunks.
+        These are chunks in 'documents' table whose source_id no longer exists in 'web_sources' table.
+
+        Returns:
+            Number of orphaned sources cleaned up
+        """
+        try:
+            # Get all valid web source IDs
+            web_sources_result = supabase.table('web_sources').select('id').execute()
+            valid_ids = set(row['id'] for row in (web_sources_result.data or []))
+
+            # Get unique source_ids from web chunks
+            docs_result = supabase.table('documents').select('metadata').execute()
+            web_chunk_source_ids = set()
+            for doc in docs_result.data or []:
+                metadata = doc.get('metadata', {})
+                if metadata.get('source_type') == 'web' and metadata.get('source_id'):
+                    web_chunk_source_ids.add(metadata['source_id'])
+
+            # Find orphaned source_ids
+            orphaned_ids = web_chunk_source_ids - valid_ids
+
+            if not orphaned_ids:
+                return 0
+
+            print(f"Found {len(orphaned_ids)} orphaned web source(s) to clean up")
+
+            for source_id in orphaned_ids:
+                await self.delete_source_content(source_id)
+
+            return len(orphaned_ids)
+
+        except Exception as e:
+            print(f"Error checking for orphaned web chunks: {e}")
+            return 0
 
     def _get_pending_sources(self) -> List[Dict[str, Any]]:
         """

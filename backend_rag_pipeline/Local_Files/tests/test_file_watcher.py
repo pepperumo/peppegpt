@@ -22,7 +22,9 @@ with patch.dict(os.environ, {
     'LLM_PROVIDER': 'openai',
     'LLM_BASE_URL': 'https://api.openai.com/v1',
     'LLM_API_KEY': 'test-llm-key',
-    'VISION_LLM_CHOICE': 'gpt-4-vision-preview'
+    'VISION_LLM_CHOICE': 'gpt-4-vision-preview',
+    'RAG_PIPELINE_ID': '',  # Disable database state to use file-based config for tests
+    'RAG_WATCH_DIRECTORY': '',  # Disable Docker path override for tests
 }):
     # Mock the Supabase client
     with patch('supabase.create_client') as mock_create_client:
@@ -205,40 +207,39 @@ class TestLocalFileWatcher:
     @patch('os.walk')
     @patch('os.stat')
     @patch.object(LocalFileWatcher, 'get_mime_type')
-    @patch.object(LocalFileWatcher, 'save_last_check_time')
-    def test_get_changes(self, mock_save, mock_get_mime, mock_stat, mock_walk, watcher):
+    def test_get_changes(self, mock_get_mime, mock_stat, mock_walk, watcher):
         """Test getting changes in watched directory"""
         # Setup mocks
         mock_walk.return_value = [
             ('/test_dir', [], ['file1.txt', 'file2.pdf'])
         ]
-        
+
         # Create mock stat results
         class MockStat:
             def __init__(self, mtime, ctime):
                 self.st_mtime = mtime
                 self.st_ctime = ctime
-        
+
         # Set file modification and creation times
         now_timestamp = datetime.now().timestamp()
         mock_stat.side_effect = [
             MockStat(now_timestamp, now_timestamp),  # file1.txt
             MockStat(now_timestamp, now_timestamp)   # file2.pdf
         ]
-        
+
         # Set MIME types
         mock_get_mime.side_effect = ['text/plain', 'application/pdf']
-        
+
         # Call the method
         result = watcher.get_changes()
-        
+
         # Verify results
         assert len(result) == 2
         assert result[0]['name'] == 'file1.txt'
         assert result[0]['mimeType'] == 'text/plain'
         assert result[1]['name'] == 'file2.pdf'
         assert result[1]['mimeType'] == 'application/pdf'
-        mock_save.assert_called_once()
+        # Note: save_last_check_time is now called after successful processing, not during get_changes
     
     @patch('os.path.exists')
     def test_check_for_deleted_files(self, mock_exists, watcher):

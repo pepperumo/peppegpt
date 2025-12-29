@@ -202,6 +202,9 @@ class LocalFileWatcher:
         """
         Get files that have been created or modified since the last check.
         
+        NOTE: Does NOT update last_check_time. That happens after successful processing
+        in check_for_changes() to ensure interrupted processing gets retried.
+        
         Returns:
             List[Dict[str, Any]]: List of file information dictionaries
         """
@@ -241,11 +244,8 @@ class LocalFileWatcher:
                     
                     changed_files.append(file_info)
         
-        # Update the last check time
-        self.last_check_time = datetime.now()
-        
-        # Save the updated last check time to config
-        self.save_last_check_time()
+        # DON'T update last_check_time here - it's updated after successful processing
+        # to ensure interrupted processing gets retried on restart
         
         return changed_files
     
@@ -294,6 +294,14 @@ class LocalFileWatcher:
             if not self.initialized:
                 print("Performing initial scan of files...")
                 
+                # Check if this is truly the first run (no known_files tracked yet)
+                is_first_run = len(self.known_files) == 0
+                
+                if is_first_run:
+                    print("First run detected - will scan and process ALL files in directory...")
+                else:
+                    print("Resuming from previous state - checking for changes and deletions...")
+                
                 # First check for deleted files using the existing known_files from database
                 deleted_file_ids = self.check_for_deleted_files()
                 if deleted_file_ids:
@@ -328,8 +336,11 @@ class LocalFileWatcher:
                         # Track current files
                         current_files[file_path] = mod_time.isoformat()
                         
-                        # Check if the file is new or modified since last check
-                        if mod_time > self.last_check_time or create_time > self.last_check_time:
+                        # On first run: process ALL files
+                        # On subsequent runs: only process files modified since last check
+                        should_process = is_first_run or (mod_time > self.last_check_time or create_time > self.last_check_time)
+                        
+                        if should_process:
                             
                             # Get relative path for display
                             rel_path = os.path.relpath(file_path, self.watch_directory)
@@ -353,8 +364,12 @@ class LocalFileWatcher:
                 # Update known_files with current files
                 self.known_files = current_files
                 
-                # Process files that have changed since last check
-                print(f"Found {len(changed_files)} files modified since last check during initialization.")
+                # Process files that need processing (all on first run, changed on subsequent runs)
+                if is_first_run:
+                    print(f"Found {len(changed_files)} total files in directory on first run.")
+                else:
+                    print(f"Found {len(changed_files)} files modified since last check during initialization.")
+                    
                 for file in changed_files:
                     try:
                         print(f"Processing file from initialization: {file.get('name', 'Unknown')}")
@@ -364,7 +379,8 @@ class LocalFileWatcher:
                         print(f"Error processing file {file.get('name', 'Unknown')} during initialization: {e}")
                         stats['errors'] += 1
                 
-                # Update the last check time to now
+                # Update the last check time AFTER successful processing
+                # This ensures interrupted processing gets retried on restart
                 self.last_check_time = datetime.now()
                 
                 print(f"Processed {stats['files_processed']} files and {stats['files_deleted']} deletions during initialization.")
@@ -405,6 +421,10 @@ class LocalFileWatcher:
                     except Exception as e:
                         print(f"Error deleting file {file_id}: {e}")
                         stats['errors'] += 1
+            
+            # Update last_check_time AFTER successful processing
+            # This ensures interrupted processing gets retried on restart
+            self.last_check_time = datetime.now()
             
             # Calculate duration
             stats['duration'] = time.time() - start_time
