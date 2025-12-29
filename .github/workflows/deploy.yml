@@ -43,6 +43,11 @@ jobs:
             --exclude ".DS_Store" \
             ./ root@srv1189800.hstgr.cloud:/root/peppegpt/
 
+      - name: Sync .env.prod to server
+        run: |
+          echo "${{ secrets.ENV_PROD_BASE64 }}" | base64 -d > .env.prod
+          scp .env.prod root@srv1189800.hstgr.cloud:/root/peppegpt/.env
+
       - name: Deploy containers
         run: |
           ssh root@srv1189800.hstgr.cloud "cd /root/peppegpt && docker compose down && docker compose up -d --build"

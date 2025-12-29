@@ -219,7 +219,33 @@ Examples:
         help='Only sync .env.prod to server (no code deployment or container restart)'
     )
 
+    parser.add_argument(
+        '--update-env-secret',
+        action='store_true',
+        help='Update ENV_PROD_BASE64 GitHub secret with current .env.prod'
+    )
+
     args = parser.parse_args()
+
+    # Handle --update-env-secret
+    if args.update_env_secret:
+        import base64
+        print("📦 Updating GitHub secret ENV_PROD_BASE64...")
+        with open(".env.prod", "rb") as f:
+            encoded = base64.b64encode(f.read()).decode()
+        # Use gh CLI to update secret
+        process = subprocess.run(
+            ["gh", "secret", "set", "ENV_PROD_BASE64", "--body", encoded],
+            capture_output=True,
+            text=True
+        )
+        if process.returncode == 0:
+            print("✅ GitHub secret updated!")
+            print("💡 Push any change to main to deploy with new env, or run: gh workflow run deploy.yml")
+        else:
+            print(f"❌ Failed to update secret: {process.stderr}")
+            sys.exit(1)
+        sys.exit(0)
 
     # Handle --sync-env (only for remote)
     if args.sync_env:
