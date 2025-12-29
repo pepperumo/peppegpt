@@ -5,10 +5,12 @@ deploy.py
 This script deploys the PeppeGPT AI Agent stack with different configurations:
 - Local: Integrates with existing AI stack (no Caddy, uses overrides for existing Caddy)
 - Cloud: Standalone deployment with its own Caddy reverse proxy
+- Remote: Deploy to production server (Hostinger)
 
 Usage:
   python deploy.py --type local --project localai    # Join existing AI stack
-  python deploy.py --type cloud                       # Standalone cloud deployment  
+  python deploy.py --type cloud                       # Standalone cloud deployment
+  python deploy.py --type remote                      # Deploy to production server
   python deploy.py --down --type local --project localai  # Stop services
 """
 
@@ -16,6 +18,10 @@ import argparse
 import subprocess
 import sys
 import os
+
+# Remote server configuration
+REMOTE_HOST = "root@srv1189800.hstgr.cloud"
+REMOTE_PATH = "/root/peppegpt"
 
 def run_command(cmd, cwd=None):
     """Run a shell command and print it."""
@@ -26,14 +32,78 @@ def run_command(cmd, cwd=None):
         print(f"Command failed with exit code {e.returncode}")
         sys.exit(1)
 
-def validate_environment():
+def validate_environment(deployment_type="local"):
     """Check that required files exist."""
     required_files = ["docker-compose.yml"]
-    
+
+    if deployment_type == "remote":
+        required_files.append(".env.prod")
+
     for file in required_files:
         if not os.path.exists(file):
             print(f"Error: Required file '{file}' not found in current directory")
             sys.exit(1)
+
+def deploy_remote(action="up", services=None):
+    """Deploy to production server (Hostinger).
+
+    Args:
+        action: "up" or "down"
+        services: List of services to deploy. Options: frontend, agent-api, rag-pipeline, neo4j
+                  If None, deploys all services.
+    """
+
+    if action == "up":
+        service_str = ', '.join(services) if services else "ALL"
+        print(f"🚀 Deploying [{service_str}] to: {REMOTE_HOST}")
+
+        # Step 1: Copy .env.prod as .env to server
+        print("\n📦 Copying .env.prod → server .env")
+        run_command(["scp", ".env.prod", f"{REMOTE_HOST}:{REMOTE_PATH}/.env"])
+
+        # Step 2: Sync project files (excluding .env files, node_modules, venv, etc.)
+        print("\n📦 Syncing project files...")
+        run_command([
+            "rsync", "-avz", "--delete",
+            "--exclude", ".env",
+            "--exclude", ".env.local",
+            "--exclude", ".env.prod",
+            "--exclude", ".env.local.auradb",
+            "--exclude", "node_modules",
+            "--exclude", "venv",
+            "--exclude", ".venv",
+            "--exclude", "__pycache__",
+            "--exclude", ".git",
+            "--exclude", "*.pyc",
+            "--exclude", ".DS_Store",
+            "./", f"{REMOTE_HOST}:{REMOTE_PATH}/"
+        ])
+
+        # Step 3: Rebuild and restart services on server
+        if services:
+            # Only rebuild specific services
+            services_arg = " ".join(services)
+            print(f"\n🔄 Rebuilding services: {services_arg}")
+            run_command(["ssh", REMOTE_HOST, f"cd {REMOTE_PATH} && docker compose up -d --build {services_arg}"])
+        else:
+            # Full deployment - stop all, rebuild all
+            print("\n🔄 Rebuilding ALL services...")
+            run_command(["ssh", REMOTE_HOST, f"cd {REMOTE_PATH} && docker compose down && docker compose up -d --build"])
+
+        # Step 4: Show status
+        print("\n📊 Checking service status...")
+        run_command(["ssh", REMOTE_HOST, "docker ps --format 'table {{.Names}}\t{{.Status}}'"])
+
+        print(f"\n✅ Production deployment completed!")
+        print(f"   Server: {REMOTE_HOST}")
+        print(f"   Path: {REMOTE_PATH}")
+        if services:
+            print(f"   Services: {', '.join(services)}")
+
+    elif action == "down":
+        print(f"🛑 Stopping services on production server: {REMOTE_HOST}")
+        run_command(["ssh", REMOTE_HOST, f"cd {REMOTE_PATH} && docker compose down"])
+        print(f"\n✅ Production services stopped!")
 
 def deploy_agent_stack(deployment_type, project_name, action="up"):
     """Deploy or stop the agent stack based on deployment type."""
@@ -96,23 +166,32 @@ def main():
 Examples:
   # Local deployment (join existing AI stack)
   python deploy.py --type local --project localai
-  
-  # Cloud deployment (standalone with Caddy)  
+
+  # Cloud deployment (standalone with Caddy)
   python deploy.py --type cloud
-  
-  # Stop local deployment
-  python deploy.py --down --type local --project localai
-  
-  # Stop cloud deployment
-  python deploy.py --down --type cloud
+
+  # Remote deployment - ALL services
+  python deploy.py --type remote
+
+  # Remote deployment - frontend only (faster!)
+  python deploy.py --type remote -s frontend
+
+  # Remote deployment - backend only
+  python deploy.py --type remote -s agent-api
+
+  # Remote deployment - multiple services
+  python deploy.py --type remote -s frontend -s agent-api
+
+  # Stop remote deployment
+  python deploy.py --down --type remote
         """
     )
     
     parser.add_argument(
-        '--type', 
-        choices=['local', 'cloud'], 
+        '--type',
+        choices=['local', 'cloud', 'remote'],
         required=True,
-        help='Deployment type: local (join AI stack) or cloud (standalone)'
+        help='Deployment type: local (join AI stack), cloud (standalone), or remote (production server)'
     )
     
     parser.add_argument(
@@ -122,21 +201,31 @@ Examples:
     )
     
     parser.add_argument(
-        '--down', 
+        '--down',
         action='store_true',
         help='Stop and remove containers instead of starting them'
     )
-    
+
+    parser.add_argument(
+        '--service', '-s',
+        action='append',
+        choices=['frontend', 'agent-api', 'rag-pipeline', 'neo4j'],
+        help='Specific service(s) to deploy (can use multiple times). If not specified, deploys all.'
+    )
+
     args = parser.parse_args()
-    
+
     # Validate environment
-    validate_environment()
-    
+    validate_environment(args.type)
+
     # Determine action
     action = "down" if args.down else "up"
-    
-    # Deploy
-    deploy_agent_stack(args.type, args.project, action)
+
+    # Deploy based on type
+    if args.type == "remote":
+        deploy_remote(action, services=args.service)
+    else:
+        deploy_agent_stack(args.type, args.project, action)
 
 if __name__ == "__main__":
     main()

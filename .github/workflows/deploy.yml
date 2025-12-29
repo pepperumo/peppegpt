@@ -1,0 +1,57 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # Allow manual trigger from GitHub UI
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add server to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H srv1189800.hstgr.cloud >> ~/.ssh/known_hosts
+
+      - name: Copy .env.prod to server
+        env:
+          ENV_PROD_CONTENT: ${{ secrets.ENV_PROD }}
+        run: |
+          echo "$ENV_PROD_CONTENT" > .env.prod
+          scp .env.prod root@srv1189800.hstgr.cloud:/root/peppegpt/.env
+
+      - name: Sync project files
+        run: |
+          rsync -avz --delete \
+            --exclude ".env" \
+            --exclude ".env.local" \
+            --exclude ".env.prod" \
+            --exclude ".env.local.auradb" \
+            --exclude "node_modules" \
+            --exclude "venv" \
+            --exclude ".venv" \
+            --exclude "__pycache__" \
+            --exclude ".git" \
+            --exclude "*.pyc" \
+            --exclude ".DS_Store" \
+            ./ root@srv1189800.hstgr.cloud:/root/peppegpt/
+
+      - name: Deploy containers
+        run: |
+          ssh root@srv1189800.hstgr.cloud "cd /root/peppegpt && docker compose down && docker compose up -d --build"
+
+      - name: Health check
+        run: |
+          sleep 30
+          ssh root@srv1189800.hstgr.cloud "docker ps --format 'table {{.Names}}\t{{.Status}}'"
