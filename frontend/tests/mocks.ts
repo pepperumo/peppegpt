@@ -198,11 +198,9 @@ export async function setupAgentAPIMocks(page: Page) {
     });
   };
 
-  // Match various possible endpoint patterns
+  // Match the API endpoint patterns - be specific to avoid breaking other requests
   await page.route('**/api/pydantic-agent', mockHandler);
   await page.route('**/api/pydantic-agent**', mockHandler);
-  await page.route('http://localhost:8001/**', mockHandler);
-  await page.route('http://localhost:8083/**', mockHandler);
 }
 
 // Override module imports with proper ES module mocking
@@ -238,8 +236,8 @@ export async function setupModuleMocks(page: Page) {
 }
 
 // Setup all mocks for authenticated state
+// Note: setupModuleMocks is not used as it doesn't work reliably with bundled apps
 export async function setupAllMocks(page: Page) {
   await setupAuthenticatedMocks(page);
   await setupAgentAPIMocks(page);
-  await setupModuleMocks(page);
 }
