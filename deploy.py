@@ -190,7 +190,6 @@ Examples:
     parser.add_argument(
         '--type',
         choices=['local', 'cloud', 'remote'],
-        required=True,
         help='Deployment type: local (join AI stack), cloud (standalone), or remote (production server)'
     )
     
@@ -257,6 +256,12 @@ Examples:
         print("✅ Environment file synced!")
         print("💡 Run 'python deploy.py --type remote' to restart containers with new env")
         sys.exit(0)
+
+    # Require --type for deployment commands
+    if not args.type:
+        print("Error: --type is required for deployment commands")
+        print("Usage: python deploy.py --type {local,cloud,remote}")
+        sys.exit(1)
 
     # Validate environment
     validate_environment(args.type)
