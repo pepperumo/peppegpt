@@ -51,6 +51,10 @@ jobs:
         with:
           node-version: '18'
 
+      - name: Create .env from secrets
+        run: |
+          echo "${{ secrets.ENV_PROD_BASE64 }}" | base64 -d > frontend/.env
+
       - name: Install frontend dependencies
         run: |
           cd frontend

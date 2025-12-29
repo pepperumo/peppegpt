@@ -182,7 +182,8 @@ export async function setupUnauthenticatedMocks(page: Page) {
 
 // Mock the agent API with proper streaming format
 export async function setupAgentAPIMocks(page: Page) {
-  await page.route('**/api/pydantic-agent', async (route) => {
+  // Mock multiple possible API endpoint patterns
+  const mockHandler = async (route: any) => {
     // The streaming format expects individual JSON objects on separate lines
     const mockResponse = `{"text": "Hello! I'm a mock AI assistant."}
 {"complete": true, "session_id": "session-new", "conversation_title": "New Chat"}`;
@@ -195,7 +196,13 @@ export async function setupAgentAPIMocks(page: Page) {
       },
       body: mockResponse
     });
-  });
+  };
+
+  // Match various possible endpoint patterns
+  await page.route('**/api/pydantic-agent', mockHandler);
+  await page.route('**/api/pydantic-agent**', mockHandler);
+  await page.route('http://localhost:8001/**', mockHandler);
+  await page.route('http://localhost:8083/**', mockHandler);
 }
 
 // Override module imports with proper ES module mocking
