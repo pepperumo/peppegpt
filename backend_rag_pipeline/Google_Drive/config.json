@@ -1,0 +1,38 @@
+{
+  "supported_mime_types": [
+    "application/pdf",
+    "text/plain",
+    "text/html",
+    "text/csv",
+    "text/markdown",
+    "application/vnd.ms-excel",
+  "application/vnd.google-apps.document",
+  "application/vnd.google-apps.spreadsheet",
+  "application/vnd.google-apps.presentation",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/msword",
+    "image/png",
+    "image/jpg",
+    "image/jpeg",
+    "image/svg"
+  ],
+  "export_mime_types": {
+    "application/vnd.google-apps.document": "application/pdf",
+    "application/vnd.google-apps.spreadsheet": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.google-apps.presentation": "text/plain"
+  },
+  "tabular_mime_types": [
+    "text/csv",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.google-apps.spreadsheet"
+  ],
+  "text_processing": {
+    "default_chunk_size": 1000,
+    "default_chunk_overlap": 0
+  },
+  "watch_folder_id": "1BzI9imiEOJuQ1HNJTRoBv4N8LgE09L-H",
+  "last_check_time": "2025-10-15T02:35:08.341250Z"
+}

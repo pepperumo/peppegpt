@@ -1,0 +1,14 @@
+This is a test document for the RAG pipeline.
+
+Company Profile: TechCorp Inc.
+Founded: 2020 by Jane Smith
+Location: San Francisco, California
+
+TechCorp specializes in artificial intelligence and machine learning.
+The company develops AI products including:
+- CloudAI Platform for enterprise
+- DataSync Tool for data integration
+- MLOps Suite for model deployment
+
+TechCorp raised $50M in Series A funding in 2023.
+Jane Smith serves as CEO and leads a team of 100 engineers.

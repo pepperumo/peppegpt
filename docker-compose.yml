@@ -1,0 +1,142 @@
+name: peppegpt
+
+services:
+  # AI Agent API Service
+  agent-api:
+    build: ./backend_agent_api
+    container_name: agent-api
+    restart: "no"
+    ports:
+      - "8001:8001"
+    environment:
+      # LLM Configuration
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+      - LLM_BASE_URL=${LLM_BASE_URL:-https://api.openai.com/v1}
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_CHOICE=${LLM_CHOICE:-gpt-4o-mini}
+      - VISION_LLM_CHOICE=${VISION_LLM_CHOICE:-gpt-4o-mini}
+      # Embedding Configuration
+      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-openai}
+      - EMBEDDING_BASE_URL=${EMBEDDING_BASE_URL:-https://api.openai.com/v1}
+      - EMBEDDING_API_KEY=${EMBEDDING_API_KEY}
+      - EMBEDDING_MODEL_CHOICE=${EMBEDDING_MODEL_CHOICE:-text-embedding-3-small}
+      # Database Configuration
+      - DATABASE_URL=${DATABASE_URL}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      # Web Search Configuration
+      - BRAVE_API_KEY=${BRAVE_API_KEY}
+      - SEARXNG_BASE_URL=${SEARXNG_BASE_URL}
+      # Neo4j Knowledge Graph Configuration (optional)
+      - NEO4J_URI=${NEO4J_URI:-bolt://neo4j:7687}
+      - NEO4J_USER=${NEO4J_USER:-neo4j}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD}
+      # Agent Observability Configuration (optional)
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
+      - LANGFUSE_HOST=${LANGFUSE_HOST:-https://cloud.langfuse.com}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8001/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # RAG Pipeline Service
+  rag-pipeline:
+    build: ./backend_rag_pipeline
+    container_name: rag-pipeline
+    restart: "no"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      # Pipeline Configuration
+      - RAG_PIPELINE_TYPE=${RAG_PIPELINE_TYPE:-local}
+      - RUN_MODE=${RUN_MODE:-continuous}
+      - RAG_PIPELINE_ID=${RAG_PIPELINE_ID}
+      # Database Configuration (same as agent)
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      # Embedding Configuration (same as agent)
+      - EMBEDDING_BASE_URL=${EMBEDDING_BASE_URL:-https://api.openai.com/v1}
+      - EMBEDDING_API_KEY=${EMBEDDING_API_KEY}
+      - EMBEDDING_MODEL_CHOICE=${EMBEDDING_MODEL_CHOICE:-text-embedding-3-small}
+      # Neo4j Knowledge Graph Configuration (optional)
+      - NEO4J_URI=${NEO4J_URI:-bolt://neo4j:7687}
+      - NEO4J_USER=${NEO4J_USER:-neo4j}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD}
+      # LLM Configuration for Graphiti entity extraction
+      - LLM_BASE_URL=${LLM_BASE_URL:-https://api.openai.com/v1}
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_CHOICE=${LLM_CHOICE:-gpt-4o-mini}
+      # Intelligent Graph Selection Configuration
+      - GRAPH_MODE=${GRAPH_MODE:-always}  # auto (smart selection), always (all docs), never (disable)
+      - GRAPH_MIN_CHUNKS=${GRAPH_MIN_CHUNKS:-3}  # Minimum chunks for graph processing
+      - GRAPH_ENTITY_THRESHOLD=${GRAPH_ENTITY_THRESHOLD:-5}  # Minimum entities to detect
+      - GRAPH_RELATIONSHIP_THRESHOLD=${GRAPH_RELATIONSHIP_THRESHOLD:-0.15}  # Min relationship density
+      # Docling Configuration for local document processing (replaces Mistral OCR)
+      - DOCLING_OCR_LANGUAGES=${DOCLING_OCR_LANGUAGES:-en}
+      - DOCLING_TABLE_MODE=${DOCLING_TABLE_MODE:-fast}  # fast = 10x faster, accurate = better quality but slow
+      - DOCLING_DEVICE=${DOCLING_DEVICE:-auto}  # auto mode (will detect GPU if available, fallback to CPU)
+      - DOCLING_NUM_THREADS=${DOCLING_NUM_THREADS:-4}
+      # Advanced chunking configuration
+      - ENABLE_LLM_CHUNKING=${ENABLE_LLM_CHUNKING:-false}  # WARNING: Very expensive! Makes LLM call per chunk
+      - CHUNKING_LLM_MODEL=${CHUNKING_LLM_MODEL:-gpt-4o-mini}
+      # Google Drive Configuration
+      - GOOGLE_DRIVE_CREDENTIALS_JSON=${GOOGLE_DRIVE_CREDENTIALS_JSON}
+      - RAG_WATCH_FOLDER_ID=${RAG_WATCH_FOLDER_ID}
+      # Local Files Configuration
+      - RAG_WATCH_DIRECTORY=${RAG_WATCH_DIRECTORY}
+    volumes:
+      # Mount local files directory for local pipeline
+      - ./rag-documents:/app/Local_Files/data
+      # Mount Google Drive credentials if using OAuth2 (optional)
+      - ./google-credentials:/app/Google_Drive/credentials
+
+  # Frontend Service
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+        VITE_AGENT_ENDPOINT: ${VITE_AGENT_ENDPOINT:-http://agent-api:8001/api/pydantic-agent}
+        VITE_ENABLE_STREAMING: ${VITE_ENABLE_STREAMING:-true}
+        VITE_LANGFUSE_HOST_WITH_PROJECT: ${VITE_LANGFUSE_HOST_WITH_PROJECT}
+    container_name: frontend
+    restart: "no"
+    ports:
+      - "8082:8080"
+    # Health check disabled - frontend is accessible but internal wget has connection issues
+    # Frontend is verified working at http://localhost:8082/
+    depends_on:
+      - agent-api
+
+  # Neo4j Knowledge Graph Database
+  neo4j:
+    image: neo4j:latest
+    container_name: neo4j
+    restart: "no"
+    ports:
+      - "7474:7474"  # Web interface at http://localhost:7474
+      - "7687:7687"  # Bolt protocol
+    environment:
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:-password123}
+      # Increase memory for better performance (optional)
+      - NEO4J_server_memory_pagecache_size=512M
+      - NEO4J_server_memory_heap_initial__size=512M
+      - NEO4J_server_memory_heap_max__size=1G
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p ${NEO4J_PASSWORD:-password123} 'RETURN 1' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  rag-documents:
+  neo4j_data:
+  neo4j_logs:
