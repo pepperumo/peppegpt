@@ -1,4 +1,4 @@
-import { Page } from '@playwright/test';
+import { Page, Route } from '@playwright/test';
 
 // Mock data
 export const mockUser = {
@@ -183,7 +183,7 @@ export async function setupUnauthenticatedMocks(page: Page) {
 // Mock the agent API with proper streaming format
 export async function setupAgentAPIMocks(page: Page) {
   // Mock multiple possible API endpoint patterns
-  const mockHandler = async (route: any) => {
+  const mockHandler = async (route: Route) => {
     // The streaming format expects individual JSON objects on separate lines
     const mockResponse = `{"text": "Hello! I'm a mock AI assistant."}
 {"complete": true, "session_id": "session-new", "conversation_title": "New Chat"}`;
