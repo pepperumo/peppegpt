@@ -331,7 +331,9 @@ class TestDocumentTools:
             'match_documents',
             {
                 'query_embedding': [0.1, 0.2, 0.3],
-                'match_count': 4
+                'match_count': 4,
+                'filter': {},
+                'match_threshold': 0.5
             }
         )
         
