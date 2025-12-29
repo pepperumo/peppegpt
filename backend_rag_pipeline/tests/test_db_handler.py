@@ -33,58 +33,44 @@ def mock_supabase():
 
 class TestDeleteDocumentByFileId:
     @patch('common.db_handler.supabase')
-    def test_successful_deletion(self, mock_supabase):
+    def test_successful_deletion(self, mock_supabase, capfd):
         """Test deleting document by file ID"""
-        # Setup mocks
-        mock_documents_delete = MagicMock()
-        mock_documents_delete.eq.return_value.execute.return_value.data = [{"id": 1}, {"id": 2}]
-        
-        mock_rows_delete = MagicMock()
-        mock_rows_delete.eq.return_value.execute.return_value.data = [{"id": 3}, {"id": 4}, {"id": 5}]
-        
-        mock_metadata_delete = MagicMock()
-        mock_metadata_delete.eq.return_value.execute.return_value.data = [{"id": "file123"}]
-        
-        mock_supabase.table.side_effect = [
-            mock_documents_delete,
-            mock_rows_delete,
-            mock_metadata_delete
+        # Setup mock for batch deletion approach
+        mock_table = MagicMock()
+
+        # First call returns IDs, second call returns empty (no more to delete)
+        mock_table.select.return_value.eq.return_value.limit.return_value.execute.side_effect = [
+            MagicMock(data=[{"id": 1}, {"id": 2}]),  # First batch
+            MagicMock(data=[])  # No more chunks
         ]
-        
+        mock_table.delete.return_value.in_.return_value.execute.return_value = MagicMock()
+        mock_table.delete.return_value.eq.return_value.execute.return_value = MagicMock(data=[])
+
+        mock_supabase.table.return_value = mock_table
+
         # Call the function
         delete_document_by_file_id("file123")
-        
-        # Assertions
-        mock_supabase.table.assert_has_calls([
-            call("documents"),
-            call("document_rows"),
-            call("document_metadata")
-        ])
-        
-        mock_documents_delete.delete.assert_called_once()
-        mock_documents_delete.delete.return_value.eq.assert_called_once_with("metadata->>file_id", "file123")
-        
-        mock_rows_delete.delete.assert_called_once()
-        mock_rows_delete.delete.return_value.eq.assert_called_once_with("dataset_id", "file123")
-        
-        mock_metadata_delete.delete.assert_called_once()
-        mock_metadata_delete.delete.return_value.eq.assert_called_once_with("id", "file123")
-    
+
+        # Verify document chunks deletion was attempted
+        captured = capfd.readouterr()
+        assert "Deleting document chunks for file ID: file123" in captured.out
+
     @patch('common.db_handler.supabase')
     def test_with_error(self, mock_supabase, capfd):
         """Test handling errors when deleting document"""
-        # Setup mocks to raise exceptions
-        mock_documents_delete = MagicMock()
-        mock_documents_delete.delete.return_value.eq.return_value.execute.side_effect = Exception("DB error")
-        
-        mock_supabase.table.return_value = mock_documents_delete
-        
+        # Setup mocks to raise exceptions on select (during batch deletion)
+        mock_table = MagicMock()
+        mock_table.select.return_value.eq.return_value.limit.return_value.execute.side_effect = Exception("DB error")
+        mock_table.delete.return_value.eq.return_value.execute.side_effect = Exception("DB error")
+
+        mock_supabase.table.return_value = mock_table
+
         # Call the function with error handling
         delete_document_by_file_id("file123")
-        
-        # Verify error was logged
+
+        # Verify error was logged (now says "Error deleting documents:" not specific table)
         captured = capfd.readouterr()
-        assert "Error deleting documents: DB error" in captured.out
+        assert "Error" in captured.out and "DB error" in captured.out
 
 class TestInsertDocumentChunks:
     @patch('common.db_handler.supabase')

@@ -338,7 +338,7 @@ class TestExtractTablesFromPdf:
         
         # Check that error was printed
         captured = capfd.readouterr()
-        assert "Error extracting tables from PDF" in captured.out
+        assert "Error extracting tables from application/pdf" in captured.out
         assert "Table extraction failed" in captured.out
     
     @patch('common.docling_extractor._create_document_converter')

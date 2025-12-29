@@ -160,8 +160,13 @@ class TestDockerEntrypoint:
     @patch('docker_entrypoint.run_single_check')
     @patch('sys.exit')
     @patch('sys.argv', ['docker_entrypoint.py', '--pipeline', 'local', '--mode', 'single'])
+    @patch.dict(os.environ, {'RAG_WATCH_DIRECTORY': ''}, clear=False)
     def test_main_single_run_success(self, mock_exit, mock_run_single_check):
         """Test main function with successful single run"""
+        # Clear RAG_WATCH_DIRECTORY if it was set by other tests or .env loading
+        if 'RAG_WATCH_DIRECTORY' in os.environ:
+            del os.environ['RAG_WATCH_DIRECTORY']
+
         # Setup mock to return success stats
         mock_run_single_check.return_value = {
             'pipeline_type': 'local',
@@ -171,17 +176,18 @@ class TestDockerEntrypoint:
             'errors': 0,
             'duration': 1.0
         }
-        
+
         # Call main
         main()
-        
+
         # Verify single check was called correctly
+        # Note: directory is None when RAG_WATCH_DIRECTORY env var is not set
         mock_run_single_check.assert_called_once_with(
             'local',
-            directory='/app/Local_Files/data',  # Default directory for local pipeline
+            directory=None,  # Default is None when RAG_WATCH_DIRECTORY env var not set
             config='config.json'  # Default config is now set when none provided
         )
-        
+
         # Verify successful exit
         mock_exit.assert_called_once_with(0)
 

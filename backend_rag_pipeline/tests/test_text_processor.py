@@ -195,13 +195,13 @@ class TestExtractSchemaFromCsv:
         """Test extracting schema from invalid CSV"""
         # Make csv.reader raise an exception
         mock_csv_reader.side_effect = Exception("CSV parsing error")
-        
+
         result = extract_schema_from_csv(b'\x80invalid')
-        
+
         assert result == []
         # Check that error was printed
         captured = capfd.readouterr()
-        assert "Error extracting schema from CSV" in captured.out
+        assert "Error extracting schema:" in captured.out
 
 class TestExtractRowsFromCsv:
     def test_valid_csv(self):
@@ -221,10 +221,10 @@ class TestExtractRowsFromCsv:
         """Test extracting rows from invalid CSV"""
         # Make csv.DictReader raise an exception
         mock_dict_reader.side_effect = Exception("CSV parsing error")
-        
+
         result = extract_rows_from_csv(b'\x80invalid')
-        
+
         assert result == []
         # Check that error was printed
         captured = capfd.readouterr()
-        assert "Error extracting rows from CSV" in captured.out
+        assert "Error extracting rows from file:" in captured.out
