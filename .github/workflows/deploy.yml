@@ -27,7 +27,7 @@ jobs:
       - name: Run backend_agent_api tests
         run: |
           cd backend_agent_api
-          pytest tests/ -v --tb=short || true
+          pytest tests/ -v --tb=short
 
       - name: Install backend_rag_pipeline dependencies
         run: |
@@ -38,7 +38,7 @@ jobs:
       - name: Run backend_rag_pipeline tests
         run: |
           cd backend_rag_pipeline
-          pytest tests/ -v --tb=short || true
+          pytest tests/ -v --tb=short
 
   test-frontend:
     runs-on: ubuntu-latest
