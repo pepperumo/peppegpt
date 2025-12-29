@@ -27,11 +27,6 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -H srv1189800.hstgr.cloud >> ~/.ssh/known_hosts
 
-      - name: Copy .env.prod to server
-        run: |
-          echo "${{ secrets.ENV_PROD_BASE64 }}" | base64 -d > .env.prod
-          scp .env.prod root@srv1189800.hstgr.cloud:/root/peppegpt/.env
-
       - name: Sync project files
         run: |
           rsync -avz --delete \

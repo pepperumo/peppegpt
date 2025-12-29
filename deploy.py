@@ -213,7 +213,24 @@ Examples:
         help='Specific service(s) to deploy (can use multiple times). If not specified, deploys all.'
     )
 
+    parser.add_argument(
+        '--sync-env',
+        action='store_true',
+        help='Only sync .env.prod to server (no code deployment or container restart)'
+    )
+
     args = parser.parse_args()
+
+    # Handle --sync-env (only for remote)
+    if args.sync_env:
+        if args.type != "remote":
+            print("Error: --sync-env only works with --type remote")
+            sys.exit(1)
+        print("📦 Syncing .env.prod → server .env")
+        run_command(["scp", ".env.prod", f"{REMOTE_HOST}:{REMOTE_PATH}/.env"])
+        print("✅ Environment file synced!")
+        print("💡 Run 'python deploy.py --type remote' to restart containers with new env")
+        sys.exit(0)
 
     # Validate environment
     validate_environment(args.type)
