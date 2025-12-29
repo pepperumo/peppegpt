@@ -361,7 +361,7 @@ class TestDocumentTools:
         result = await retrieve_relevant_documents_tool(mock_supabase, AsyncMock(), "test query")
         
         # Verify the result for no documents
-        assert result == "No relevant documents found."
+        assert result == "No relevant documents found in vector store."
 
     @pytest.mark.asyncio
     @patch('tools.get_embedding')
