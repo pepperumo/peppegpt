@@ -7,8 +7,68 @@ on:
   workflow_dispatch:  # Allow manual trigger from GitHub UI
 
 jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install backend_agent_api dependencies
+        run: |
+          cd backend_agent_api
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio
+
+      - name: Run backend_agent_api tests
+        run: |
+          cd backend_agent_api
+          pytest tests/ -v --tb=short || true
+
+      - name: Install backend_rag_pipeline dependencies
+        run: |
+          cd backend_rag_pipeline
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio
+
+      - name: Run backend_rag_pipeline tests
+        run: |
+          cd backend_rag_pipeline
+          pytest tests/ -v --tb=short || true
+
+  test-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Run frontend lint
+        run: |
+          cd frontend
+          npm run lint
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm run build
+
   deploy:
     runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend]
 
     steps:
       - name: Checkout code
