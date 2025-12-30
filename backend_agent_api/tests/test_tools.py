@@ -339,10 +339,10 @@ class TestDocumentTools:
         
         # Verify the result contains document information
         assert "Document ID: doc1" in result
-        assert "Document Tilte: Document 1" in result
+        assert "Document Title: Document 1" in result
         assert "Document content 1" in result
         assert "Document ID: doc2" in result
-        assert "Document Tilte: Document 2" in result
+        assert "Document Title: Document 2" in result
         assert "Document content 2" in result
 
     @pytest.mark.asyncio
