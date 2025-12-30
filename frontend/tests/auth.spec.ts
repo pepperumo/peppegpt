@@ -13,12 +13,19 @@ test.describe('Authentication Flow', () => {
     await setupModuleMocks(page);
   });
 
-  test('should redirect to login when not authenticated', async ({ page }) => {
+  test('should show GuestChat at root when not authenticated', async ({ page }) => {
     await page.goto('/');
-    
-    // Should redirect to /login
-    await expect(page).toHaveURL('/login');
-    
+
+    // Should stay on root and show GuestChat (not redirect to login)
+    await expect(page).toHaveURL('/');
+
+    // Should see the guest mode indicator
+    await expect(page.getByText('Guest Mode', { exact: true })).toBeVisible();
+  });
+
+  test('should show login form at /login', async ({ page }) => {
+    await page.goto('/login');
+
     // Should see the login form
     await expect(page.locator('h1, h2')).toContainText('AI Agent Dashboard');
     await expect(page.locator('input[type="email"]')).toBeVisible();

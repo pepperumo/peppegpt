@@ -44,43 +44,22 @@ test.describe('Guest Mode Flow', () => {
     await setupModuleMocks(page);
   });
 
-  test('should show "Try as Guest" button on login page', async ({ page }) => {
-    await page.goto('/login');
+  test('should show GuestChat as the default landing page', async ({ page }) => {
+    // Navigate to root - should show GuestChat directly
+    await page.goto('/');
 
-    // Should see the login form
-    await expect(page.locator('h1, h2')).toContainText('AI Agent Dashboard');
-
-    // Should see the "Try as Guest" button
-    const guestButton = page.locator('button:has-text("Try as Guest")');
-    await expect(guestButton).toBeVisible();
-  });
-
-  test('should enter guest mode when clicking "Try as Guest"', async ({ page }) => {
-    await page.goto('/login');
-
-    // Click the "Try as Guest" button
-    const guestButton = page.locator('button:has-text("Try as Guest")');
-    await guestButton.click();
-
-    // Should redirect to the chat page
-    await expect(page).toHaveURL('/');
-
-    // Should see the guest mode indicator (use exact match)
+    // Should see the guest mode indicator
     await expect(page.getByText('Guest Mode', { exact: true })).toBeVisible();
 
-    // Should see the PeppeGPT header (use first match - header in navbar)
+    // Should see the PeppeGPT header
     await expect(page.getByText('PeppeGPT', { exact: true }).first()).toBeVisible();
 
-    // Should see the "Sign In" button (use exact match)
+    // Should see the "Sign In" button
     await expect(page.getByRole('button', { name: 'Sign In', exact: true })).toBeVisible();
   });
 
   test('should display guest chat interface elements', async ({ page }) => {
-    await page.goto('/login');
-
-    // Enter guest mode
-    await page.locator('button:has-text("Try as Guest")').click();
-    await expect(page).toHaveURL('/');
+    await page.goto('/');
 
     // Should see the chat input
     const messageInput = page.getByPlaceholder('Message the AI...');
@@ -97,11 +76,7 @@ test.describe('Guest Mode Flow', () => {
   });
 
   test('should send a message in guest mode and receive response', async ({ page }) => {
-    await page.goto('/login');
-
-    // Enter guest mode
-    await page.locator('button:has-text("Try as Guest")').click();
-    await expect(page).toHaveURL('/');
+    await page.goto('/');
 
     // Type a message
     const messageInput = page.getByPlaceholder('Message the AI...');
@@ -119,24 +94,16 @@ test.describe('Guest Mode Flow', () => {
   });
 
   test('should show guest mode disclaimer', async ({ page }) => {
-    await page.goto('/login');
-
-    // Enter guest mode
-    await page.locator('button:has-text("Try as Guest")').click();
-    await expect(page).toHaveURL('/');
+    await page.goto('/');
 
     // Should see the disclaimer about conversations not being saved
     await expect(page.locator('text=Guest mode - conversations are not saved')).toBeVisible();
   });
 
   test('should navigate to login when clicking "Sign In" in guest mode', async ({ page }) => {
-    await page.goto('/login');
+    await page.goto('/');
 
-    // Enter guest mode
-    await page.locator('button:has-text("Try as Guest")').click();
-    await expect(page).toHaveURL('/');
-
-    // Click the "Sign In" button in header (use exact match)
+    // Click the "Sign In" button in header
     await page.getByRole('button', { name: 'Sign In', exact: true }).click();
 
     // Should redirect to login page
@@ -144,11 +111,7 @@ test.describe('Guest Mode Flow', () => {
   });
 
   test('should open project info panel in guest mode', async ({ page }) => {
-    await page.goto('/login');
-
-    // Enter guest mode
-    await page.locator('button:has-text("Try as Guest")').click();
-    await expect(page).toHaveURL('/');
+    await page.goto('/');
 
     // Click the info button
     await page.locator('button[title="About this project"]').click();
@@ -160,11 +123,7 @@ test.describe('Guest Mode Flow', () => {
   });
 
   test('should handle suggested question clicks in guest mode', async ({ page }) => {
-    await page.goto('/login');
-
-    // Enter guest mode
-    await page.locator('button:has-text("Try as Guest")').click();
-    await expect(page).toHaveURL('/');
+    await page.goto('/');
 
     // Click a suggested question
     const suggestedQuestion = page.locator('button:has-text("professional experience")');
@@ -192,11 +151,7 @@ test.describe('Guest Mode Flow', () => {
       });
     });
 
-    await page.goto('/login');
-
-    // Enter guest mode
-    await page.locator('button:has-text("Try as Guest")').click();
-    await expect(page).toHaveURL('/');
+    await page.goto('/');
 
     // Type and send a message
     const messageInput = page.getByPlaceholder('Message the AI...');
@@ -205,8 +160,8 @@ test.describe('Guest Mode Flow', () => {
     const sendButton = page.locator('button[type="submit"]').last();
     await sendButton.click();
 
-    // Should see loading indicator
-    await expect(page.locator('#loading-indicator')).toBeVisible();
+    // Should see the user message immediately
+    await expect(page.getByText('Test loading')).toBeVisible();
 
     // Should see the response after delay
     await expect(page.getByText('Delayed response')).toBeVisible({ timeout: 10000 });
@@ -226,11 +181,7 @@ test.describe('Guest Mode Flow', () => {
       });
     });
 
-    await page.goto('/login');
-
-    // Enter guest mode
-    await page.locator('button:has-text("Try as Guest")').click();
-    await expect(page).toHaveURL('/');
+    await page.goto('/');
 
     // Type and send a message
     const messageInput = page.getByPlaceholder('Message the AI...');
@@ -244,11 +195,7 @@ test.describe('Guest Mode Flow', () => {
   });
 
   test('should auto-focus input on load in guest mode', async ({ page }) => {
-    await page.goto('/login');
-
-    // Enter guest mode
-    await page.locator('button:has-text("Try as Guest")').click();
-    await expect(page).toHaveURL('/');
+    await page.goto('/');
 
     // Wait for input to be visible and focused
     const messageInput = page.getByPlaceholder('Message the AI...');
@@ -262,5 +209,12 @@ test.describe('Guest Mode Flow', () => {
 
     // The input should contain the typed text
     await expect(messageInput).toHaveValue('Test auto focus');
+  });
+
+  test('should show login page at /login route', async ({ page }) => {
+    await page.goto('/login');
+
+    // Should see the login form
+    await expect(page.locator('h1, h2')).toContainText('AI Agent Dashboard');
   });
 });

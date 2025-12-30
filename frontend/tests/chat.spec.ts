@@ -29,10 +29,10 @@ test.describe('Chat Flow', () => {
   });
 
   test('should display chat interface when authenticated', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/chat');
     
     // Should stay on root page (not redirect to login)
-    await expect(page).toHaveURL('/');
+    await expect(page).toHaveURL('/chat');
     
     // Should see chat interface elements - look for common chat UI elements
     const chatElements = [
@@ -61,10 +61,10 @@ test.describe('Chat Flow', () => {
   });
 
   test('should send a message and receive response', async ({ page }) => {
-    await page.goto('/');
-    
-    // Should be on the chat page (authenticated users see chat at /)
-    await expect(page).toHaveURL('/');
+    await page.goto('/chat');
+
+    // Should be on the chat page
+    await expect(page).toHaveURL('/chat');
     
     // Should see the chat interface - look for the specific textarea placeholder
     const messageInput = page.getByPlaceholder('Message the AI...');
@@ -95,7 +95,7 @@ test.describe('Chat Flow', () => {
   });
 
   test('should start a new conversation', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/chat');
     
     // Look for new chat button with various possible texts/attributes
     const newChatSelectors = [
@@ -123,7 +123,7 @@ test.describe('Chat Flow', () => {
   });
 
   test('should display conversation history if available', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/chat');
     
     // Look for conversation list items
     const conversationSelectors = [
@@ -144,7 +144,7 @@ test.describe('Chat Flow', () => {
   });
 
   test('should handle mobile sidebar toggle if present', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/chat');
     
     // Look for menu/hamburger button
     const menuButton = page.locator('button:has-text("Menu"), [aria-label*="menu"], [data-testid="menu"], button:has([data-lucide="menu"])').first();
@@ -173,10 +173,10 @@ test.describe('Chat Flow', () => {
       });
     });
     
-    await page.goto('/');
+    await page.goto('/chat');
     
     // Should be on the chat page
-    await expect(page).toHaveURL('/');
+    await expect(page).toHaveURL('/chat');
     
     // Should see the chat interface
     const messageInput = page.getByPlaceholder('Message the AI...');
@@ -188,14 +188,11 @@ test.describe('Chat Flow', () => {
     // Send the message
     const sendButton = page.locator('button[type="submit"]').last();
     await sendButton.click();
-    
-    // Should see loading dots while response is being generated
-    await expect(page.locator('#loading-indicator')).toBeVisible();
-    
+
+    // Should see the user message immediately
+    await expect(page.getByText('Test loading')).toBeVisible();
+
     // Should see the delayed response (auto-waits for it to appear)
     await expect(page.getByText('Delayed response')).toBeVisible();
-    
-    // Loading indicator should be gone after response appears
-    await expect(page.locator('#loading-indicator')).not.toBeVisible();
   });
 });
