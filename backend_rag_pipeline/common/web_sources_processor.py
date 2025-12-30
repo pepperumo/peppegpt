@@ -151,10 +151,11 @@ class WebSourcesProcessor:
 
                     if success:
                         result.sources_processed += 1
-                        # Get updated chunks count
-                        updated_source = self._get_source_by_id(source_id)
-                        if updated_source:
-                            result.total_chunks_created += updated_source.get('chunks_count', 0)
+                        # Count actual chunks in database (not from web_sources table)
+                        actual_chunks = supabase.from_('documents').select('id', count='exact').eq(
+                            'metadata->>source_id', source_id
+                        ).execute()
+                        result.total_chunks_created += actual_chunks.count
                     else:
                         result.sources_failed += 1
 
@@ -299,10 +300,16 @@ class WebSourcesProcessor:
                         print(f"Warning: Failed to add to knowledge graph: {e}")
                         # Don't fail the entire process if graph building fails
 
-            # Update source status to completed
-            self._update_source_completed(source_id, title, len(chunks))
+            # Count actual chunks inserted in database
+            actual_chunks_result = supabase.from_('documents').select('id', count='exact').eq(
+                'metadata->>source_id', source_id
+            ).execute()
+            actual_chunk_count = actual_chunks_result.count
+            
+            # Update source status to completed with actual count
+            self._update_source_completed(source_id, title, actual_chunk_count)
 
-            print(f"Successfully processed web source: {url} ({len(chunks)} chunks)", flush=True)
+            print(f"Successfully processed web source: {url} ({actual_chunk_count} chunks)", flush=True)
             return True
 
         except Exception as e:

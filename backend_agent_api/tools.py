@@ -119,25 +119,28 @@ async def get_embedding(text: str, embedding_client: AsyncOpenAI) -> List[float]
 
 async def retrieve_relevant_documents_tool(supabase: Client, embedding_client: AsyncOpenAI, user_query: str, graph_client=None) -> str:
     """
-    Function to retrieve relevant document chunks with RAG.
-    This is called by the retrieve_relevant_documents tool for the agent.
+    Function to retrieve relevant document chunks with RAG using Parent-Child retrieval.
+    
+    Strategy:
+    - Search using small, focused chunks (children) for high similarity scores
+    - Return larger context chunks (parents) for better LLM comprehension
+    - This gives precise retrieval + complete context
     
     Returns:
-        List[str]: List of relevant document chunks with metadata
+        List[str]: List of relevant document chunks with expanded context
     """    
     try:
         # Get the embedding for the query
         query_embedding = await get_embedding(user_query, embedding_client)
 
-        # Query Supabase for relevant documents
-        # Explicitly pass all parameters to avoid PostgREST function overloading issues
+        # Query Supabase for relevant documents (find the "children" - small focused chunks)
         result = supabase.rpc(
             'match_documents',
             {
                 'query_embedding': query_embedding,
-                'match_count': 4,
+                'match_count': 8,  # Get more candidates for parent expansion
                 'filter': {},
-                'match_threshold': 0.3  # Lowered from 0.5 to get more relevant results
+                'match_threshold': 0.25  # Lower threshold for better recall
             }
         ).execute()
 
@@ -145,24 +148,73 @@ async def retrieve_relevant_documents_tool(supabase: Client, embedding_client: A
             vector_results = "No relevant documents found in vector store."
             print(f"RAG: No results found for query: {user_query}")
         else:
-            # Format the vector results
-            print(f"RAG: Found {len(result.data)} documents for query: {user_query}")
-            formatted_chunks = []
+            print(f"RAG: Found {len(result.data)} child chunks for query: {user_query}")
+            
+            # Parent-Child Retrieval: Expand small chunks to include surrounding context
+            expanded_chunks = []
+            seen_parents = set()  # Avoid duplicate parent chunks
+            
             for doc in result.data:
+                file_id = doc['metadata'].get('file_id', 'unknown')
+                chunk_id = doc.get('id')
                 title = doc['metadata'].get('file_title', 'unknown')
                 similarity = doc.get('similarity', 'N/A')
+                
                 print(f"  - {title} (similarity: {similarity})")
-                chunk_text = f"""
-# Document ID: {doc['metadata'].get('file_id', 'unknown')}
-# Document Title: {doc['metadata'].get('file_title', 'unknown')}
+                
+                # Get parent context: retrieve surrounding chunks from same document
+                # This gives more context while maintaining precise retrieval
+                parent_key = f"{file_id}_{chunk_id}"
+                
+                if parent_key not in seen_parents:
+                    try:
+                        # Fetch 3 chunks: previous, current, next (if they exist)
+                        # This provides ~1200 chars of context (3 x 400 chars)
+                        parent_chunks = supabase.from_('documents') \
+                            .select('content, id') \
+                            .eq('metadata->>file_id', file_id) \
+                            .order('id') \
+                            .execute()
+                        
+                        if parent_chunks.data:
+                            # Find the current chunk index
+                            chunk_ids = [c['id'] for c in parent_chunks.data]
+                            if chunk_id in chunk_ids:
+                                current_idx = chunk_ids.index(chunk_id)
+                                
+                                # Get surrounding chunks (previous + current + next)
+                                start_idx = max(0, current_idx - 1)
+                                end_idx = min(len(parent_chunks.data), current_idx + 2)
+                                
+                                parent_content = "\n\n".join([
+                                    parent_chunks.data[i]['content'] 
+                                    for i in range(start_idx, end_idx)
+                                ])
+                                
+                                print(f"    → Expanded to {len(parent_content)} chars (parent context)")
+                            else:
+                                # Fallback: use the child chunk itself
+                                parent_content = doc['content']
+                        else:
+                            parent_content = doc['content']
+                            
+                    except Exception as e:
+                        print(f"    → Parent expansion failed, using child: {e}")
+                        parent_content = doc['content']
+                    
+                    chunk_text = f"""
+# Document ID: {file_id}
+# Document Title: {title}
 # Document URL: {doc['metadata'].get('file_url', 'unknown')}
+# Relevance Score: {similarity}
 
-{doc['content']}
+{parent_content}
 """
-                formatted_chunks.append(chunk_text)
+                    expanded_chunks.append(chunk_text)
+                    seen_parents.add(parent_key)
 
-            vector_results = "\n\n---\n\n".join(formatted_chunks)
-            print(f"RAG: Returning {len(vector_results)} chars to agent")
+            vector_results = "\n\n---\n\n".join(expanded_chunks)
+            print(f"RAG: Returning {len(vector_results)} chars to agent (parent-child retrieval)")
 
         # If graph client is available, also search the knowledge graph
         graph_results = ""

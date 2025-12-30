@@ -152,6 +152,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const enterGuestMode = () => {
     setIsGuest(true);
+    // Navigate to home page (which will show GuestChat)
+    window.location.href = '/';
   };
 
   const exitGuestMode = () => {

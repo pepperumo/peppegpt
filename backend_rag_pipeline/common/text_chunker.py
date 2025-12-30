@@ -24,10 +24,10 @@ else:
     # Production: use cloud platform env vars only
     load_dotenv()
 
-# Chunking configuration (matching n8n defaults)
-MAX_CHUNK_SIZE = 1000
-MIN_CHUNK_SIZE = 400
-MERGE_PAD = int(MAX_CHUNK_SIZE * 1.05)
+# Chunking configuration (optimized for better retrieval)
+MAX_CHUNK_SIZE = 400  # Reduced from 600 for more focused chunks
+MIN_CHUNK_SIZE = 150  # Reduced from 250 to allow smaller, more specific chunks
+MERGE_PAD = int(MAX_CHUNK_SIZE * 1.1)  # Allow only 10% overflow (440 chars) instead of more
 ENABLE_HEADING_SPLIT = True
 
 # Initialize LLM client for chunking (if configured)
@@ -267,31 +267,15 @@ def chunk_text(text: str, chunk_size: int = 1000, overlap: int = 0, use_advanced
                 
                 remaining = remaining[bp:].strip()
     
-    # 5. Merge small chunks with neighbors (allow small overflow, but NEVER merge tables)
-    i = 0
-    while i < len(chunks):
-        cur = chunks[i]
-        cur_size = len(cur['content'])
-        
-        if cur_size < min_size and not cur.get('is_table'):
-            # Try forward merge
-            if i + 1 < len(chunks) and not chunks[i + 1].get('is_table'):
-                next_size = len(chunks[i + 1]['content'])
-                if cur_size + next_size <= merge_pad:
-                    cur['content'] += '\n\n' + chunks[i + 1]['content']
-                    chunks.pop(i + 1)
-                    continue
-            
-            # Try backward merge
-            if i > 0 and not chunks[i - 1].get('is_table'):
-                prev_size = len(chunks[i - 1]['content'])
-                if prev_size + cur_size <= merge_pad:
-                    chunks[i - 1]['content'] += '\n\n' + cur['content']
-                    chunks.pop(i)
-                    i -= 1
-                    continue
-        
-        i += 1
+    # 5. Merge small chunks with neighbors (DISABLED for better RAG retrieval)
+    # Small, focused chunks are actually better for semantic search than large merged chunks
+    # Original merging logic caused chunks to balloon beyond target size
+    # Keeping this section for future reference if we want to re-enable with better logic
+    
+    # OPTIONAL: If you want to re-enable merging, use stricter conditions:
+    # - Only merge if BOTH chunks stay under max_size (not merge_pad)
+    # - Only merge if the resulting chunk maintains semantic coherence
+    pass  # Merging disabled
     
     # 6. Apply overlap if specified (for non-table chunks)
     if overlap > 0:
