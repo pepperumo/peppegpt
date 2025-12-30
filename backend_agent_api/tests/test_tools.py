@@ -43,7 +43,9 @@ with patch.dict(os.environ, {
                 list_documents_tool,
                 get_document_content_tool,
                 image_analysis_tool,
-                execute_safe_code_tool
+                execute_safe_code_tool,
+                RAG_MATCH_COUNT,
+                RAG_MATCH_THRESHOLD
             )
 
 
@@ -326,14 +328,14 @@ class TestDocumentTools:
         from unittest.mock import ANY
         mock_get_embedding.assert_called_once_with("test query", ANY)
         
-        # Verify Supabase RPC was called correctly
+        # Verify Supabase RPC was called correctly with configured parameters
         mock_supabase.rpc.assert_called_once_with(
             'match_documents',
             {
                 'query_embedding': [0.1, 0.2, 0.3],
-                'match_count': 4,
+                'match_count': RAG_MATCH_COUNT,
                 'filter': {},
-                'match_threshold': 0.3
+                'match_threshold': RAG_MATCH_THRESHOLD
             }
         )
         

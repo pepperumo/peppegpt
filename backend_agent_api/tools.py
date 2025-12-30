@@ -13,6 +13,10 @@ import sys
 import os
 import re
 
+# RAG retrieval configuration - change these to tune retrieval behavior
+RAG_MATCH_COUNT = 8  # Number of chunks to retrieve
+RAG_MATCH_THRESHOLD = 0.25  # Minimum similarity score (0-1, lower = more permissive)
+
 embedding_model = os.getenv('EMBEDDING_MODEL_CHOICE') or 'text-embedding-3-small'
 
 async def brave_web_search(query: str, http_client: AsyncClient, brave_api_key: str) -> str:
@@ -138,9 +142,9 @@ async def retrieve_relevant_documents_tool(supabase: Client, embedding_client: A
             'match_documents',
             {
                 'query_embedding': query_embedding,
-                'match_count': 8,  # Get more candidates for parent expansion
+                'match_count': RAG_MATCH_COUNT,
                 'filter': {},
-                'match_threshold': 0.25  # Lower threshold for better recall
+                'match_threshold': RAG_MATCH_THRESHOLD
             }
         ).execute()
 
