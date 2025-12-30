@@ -48,20 +48,29 @@ const AppRoutes = () => {
 
   return (
     <Routes>
-      <Route
-        path="/login"
-        element={(user || isGuest) ? <Navigate to="/" /> : <Login />}
-      />
+      {/* Default landing page is GuestChat for recruiters */}
       <Route
         path="/"
         element={
-          isGuest ? (
-            <GuestChat />
+          user ? (
+            <Navigate to="/chat" />
           ) : (
-            <ProtectedRoute>
-              <Chat />
-            </ProtectedRoute>
+            <GuestChat />
           )
+        }
+      />
+      {/* Login page for those who want to sign in */}
+      <Route
+        path="/login"
+        element={user ? <Navigate to="/chat" /> : <Login />}
+      />
+      {/* Protected chat for authenticated users */}
+      <Route
+        path="/chat"
+        element={
+          <ProtectedRoute>
+            <Chat />
+          </ProtectedRoute>
         }
       />
       <Route

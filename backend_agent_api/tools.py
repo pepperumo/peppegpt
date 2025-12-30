@@ -137,19 +137,24 @@ async def retrieve_relevant_documents_tool(supabase: Client, embedding_client: A
                 'query_embedding': query_embedding,
                 'match_count': 4,
                 'filter': {},
-                'match_threshold': 0.5
+                'match_threshold': 0.3  # Lowered from 0.5 to get more relevant results
             }
         ).execute()
 
         if not result.data:
             vector_results = "No relevant documents found in vector store."
+            print(f"RAG: No results found for query: {user_query}")
         else:
             # Format the vector results
+            print(f"RAG: Found {len(result.data)} documents for query: {user_query}")
             formatted_chunks = []
             for doc in result.data:
+                title = doc['metadata'].get('file_title', 'unknown')
+                similarity = doc.get('similarity', 'N/A')
+                print(f"  - {title} (similarity: {similarity})")
                 chunk_text = f"""
 # Document ID: {doc['metadata'].get('file_id', 'unknown')}
-# Document Tilte: {doc['metadata'].get('file_title', 'unknown')}
+# Document Title: {doc['metadata'].get('file_title', 'unknown')}
 # Document URL: {doc['metadata'].get('file_url', 'unknown')}
 
 {doc['content']}
@@ -157,6 +162,7 @@ async def retrieve_relevant_documents_tool(supabase: Client, embedding_client: A
                 formatted_chunks.append(chunk_text)
 
             vector_results = "\n\n---\n\n".join(formatted_chunks)
+            print(f"RAG: Returning {len(vector_results)} chars to agent")
 
         # If graph client is available, also search the knowledge graph
         graph_results = ""

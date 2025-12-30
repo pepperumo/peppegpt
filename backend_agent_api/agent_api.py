@@ -17,6 +17,8 @@ import time
 import json
 import sys
 import os
+import uuid
+import hashlib
 
 # Import Langfuse configuration
 from configure_langfuse import configure_langfuse
@@ -662,15 +664,45 @@ async def health_check():
 # Public Chat API (No Authentication Required)
 # ============================================================================
 
+class PublicChatMessage(BaseModel):
+    """A message in the public chat history."""
+    role: str  # 'user' or 'assistant'
+    content: str
+
+
 class PublicChatRequest(BaseModel):
     """Request model for public chat endpoint."""
     query: str
+    history: Optional[List[PublicChatMessage]] = None  # Conversation history for short-term memory
 
 
 class PublicChatResponse(BaseModel):
     """Response model for public chat endpoint."""
     response: str
     rate_limit_remaining: Optional[Dict[str, int]] = None
+
+
+def convert_public_history_to_pydantic(history: Optional[List[PublicChatMessage]]) -> List[ModelMessage]:
+    """
+    Convert public chat history to Pydantic AI message format.
+
+    Args:
+        history: List of PublicChatMessage objects
+
+    Returns:
+        List of ModelMessage objects for Pydantic AI
+    """
+    if not history:
+        return []
+
+    messages: List[ModelMessage] = []
+    for msg in history:
+        if msg.role == "user":
+            messages.append(ModelRequest(parts=[UserPromptPart(content=msg.content)]))
+        elif msg.role == "assistant":
+            messages.append(ModelResponse(parts=[TextPart(content=msg.content)]))
+
+    return messages
 
 
 def get_client_ip(request: Request) -> str:
@@ -699,6 +731,16 @@ def get_client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+def ip_to_uuid(ip_address: str) -> str:
+    """
+    Convert an IP address to a deterministic UUID for rate limiting.
+    Uses a namespace UUID + IP hash to ensure same IP always gets same UUID.
+    """
+    # Use a fixed namespace for public API rate limiting
+    namespace = uuid.UUID('6ba7b810-9dad-11d1-80b4-00c04fd430c8')  # URL namespace
+    return str(uuid.uuid5(namespace, f"public-api:{ip_address}"))
+
+
 @app.post("/api/public/chat", response_model=PublicChatResponse)
 async def public_chat(chat_request: PublicChatRequest, request: Request):
     """
@@ -720,16 +762,16 @@ async def public_chat(chat_request: PublicChatRequest, request: Request):
         HTTPException 429: If rate limit is exceeded
         HTTPException 400: If query is invalid
     """
-    # Get client IP address (used as user_id for rate limiting)
+    # Get client IP address and convert to UUID for rate limiting
     client_ip = get_client_ip(request)
-    public_user_id = f"public:{client_ip}"  # Prefix to distinguish from real users
+    public_user_id = ip_to_uuid(client_ip)  # Convert IP to deterministic UUID
 
     # Validate query
     query = chat_request.query.strip()
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be empty")
 
-    # Check rate limit using existing function (IP as user_id)
+    # Check rate limit using existing function
     rate_limit = int(os.getenv("PUBLIC_API_RATE_LIMIT_MINUTE", "10"))
     rate_limit_ok = await check_rate_limit(supabase, public_user_id, rate_limit)
 
@@ -740,9 +782,12 @@ async def public_chat(chat_request: PublicChatRequest, request: Request):
         )
 
     try:
-        # Store request using existing function (IP as user_id)
-        request_id = f"pub-{client_ip}-{int(time.time())}"
+        # Store request using existing function with proper UUID
+        request_id = str(uuid.uuid4())  # Generate random UUID for request ID
         await store_request(supabase, request_id, public_user_id, query[:500])
+
+        # Convert history to Pydantic AI format for short-term memory
+        message_history = convert_public_history_to_pydantic(chat_request.history)
 
         # Create agent dependencies (no user-specific memories for public API)
         agent_deps = AgentDeps(
@@ -756,7 +801,7 @@ async def public_chat(chat_request: PublicChatRequest, request: Request):
         )
 
         # Run the agent without streaming (simpler for public API)
-        result = await agent.run(query, deps=agent_deps)
+        result = await agent.run(query, deps=agent_deps, message_history=message_history)
 
         return PublicChatResponse(response=result.data)
 
@@ -783,9 +828,9 @@ async def public_chat_stream(chat_request: PublicChatRequest, request: Request):
     Returns:
         StreamingResponse with chunked AI response
     """
-    # Get client IP address (used as user_id for rate limiting)
+    # Get client IP address and convert to UUID for rate limiting
     client_ip = get_client_ip(request)
-    public_user_id = f"public:{client_ip}"
+    public_user_id = ip_to_uuid(client_ip)  # Convert IP to deterministic UUID
 
     # Validate query
     query = chat_request.query.strip()
@@ -805,9 +850,12 @@ async def public_chat_stream(chat_request: PublicChatRequest, request: Request):
             media_type='text/plain'
         )
 
-    # Store request using existing function
-    request_id = f"pub-{client_ip}-{int(time.time())}"
+    # Store request using existing function with proper UUID
+    request_id = str(uuid.uuid4())  # Generate random UUID for request ID
     await store_request(supabase, request_id, public_user_id, query[:500])
+
+    # Convert history to Pydantic AI format for short-term memory
+    message_history = convert_public_history_to_pydantic(chat_request.history)
 
     async def stream_response():
         try:
@@ -823,7 +871,7 @@ async def public_chat_stream(chat_request: PublicChatRequest, request: Request):
 
             full_response = ""
 
-            async with agent.iter([query], deps=agent_deps) as run:
+            async with agent.iter([query], deps=agent_deps, message_history=message_history) as run:
                 async for node in run:
                     if Agent.is_model_request_node(node):
                         async with node.stream(run.ctx) as request_stream:

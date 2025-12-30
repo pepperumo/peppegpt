@@ -333,7 +333,7 @@ class TestDocumentTools:
                 'query_embedding': [0.1, 0.2, 0.3],
                 'match_count': 4,
                 'filter': {},
-                'match_threshold': 0.5
+                'match_threshold': 0.3
             }
         )
         

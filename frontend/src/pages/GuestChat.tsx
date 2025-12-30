@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react';
-import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { MessageList } from '@/components/chat/MessageList';
 import { ChatInput } from '@/components/chat/ChatInput';
@@ -12,10 +11,10 @@ import { useNavigate } from 'react-router-dom';
 const AGENT_BASE_URL = import.meta.env.VITE_AGENT_ENDPOINT?.replace('/api/pydantic-agent', '') || 'http://localhost:8001';
 
 export const GuestChat = () => {
-  const { exitGuestMode } = useAuth();
   const navigate = useNavigate();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);  // True while waiting for first response
   const [error, setError] = useState<string | null>(null);
   const isMounted = useRef(true);
 
@@ -26,7 +25,6 @@ export const GuestChat = () => {
   }, []);
 
   const handleSignIn = () => {
-    exitGuestMode();
     navigate('/login');
   };
 
@@ -49,7 +47,7 @@ export const GuestChat = () => {
     setLoading(true);
     setError(null);
 
-    // Create placeholder for assistant message
+    // Create placeholder for assistant message (shows loading dots)
     const assistantMessageId = `guest-assistant-${Date.now()}`;
     const assistantMessage: Message = {
       id: assistantMessageId,
@@ -57,20 +55,25 @@ export const GuestChat = () => {
       computed_session_user_id: 'guest',
       message: {
         type: 'ai',
-        content: '',
+        content: '',  // Empty content will show loading dots
       },
       created_at: new Date().toISOString(),
     };
-
     setMessages(prev => [...prev, assistantMessage]);
 
     try {
+      // Build conversation history for short-term memory (exclude empty placeholder)
+      const history = messages.map(msg => ({
+        role: msg.message.type === 'human' ? 'user' : 'assistant',
+        content: msg.message.content
+      }));
+
       const response = await fetch(`${AGENT_BASE_URL}/api/public/chat/stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ query: content }),
+        body: JSON.stringify({ query: content, history }),
       });
 
       if (!response.ok) {
@@ -99,6 +102,7 @@ export const GuestChat = () => {
             if (data.text) {
               fullText = data.text;
               if (isMounted.current) {
+                // Update existing placeholder message with new content
                 setMessages(prev =>
                   prev.map(msg =>
                     msg.id === assistantMessageId
@@ -121,6 +125,7 @@ export const GuestChat = () => {
     } finally {
       if (isMounted.current) {
         setLoading(false);
+        setIsStreaming(false);
       }
     }
   };
@@ -159,7 +164,7 @@ export const GuestChat = () => {
             <MessageList
               messages={messages}
               isLoading={loading}
-              isGeneratingResponse={loading && messages.length > 0}
+              isGeneratingResponse={false}
               onSendMessage={handleSendMessage}
             />
           </div>

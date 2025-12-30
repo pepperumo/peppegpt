@@ -11,6 +11,7 @@ import ReactMarkdown from 'react-markdown';
 import { PrismLight as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { cn } from '@/lib/utils';
+import { LoadingDots } from '@/components/ui/loading-dots';
 
 interface MessageItemProps {
   message: Message;
@@ -168,7 +169,11 @@ export const MessageItem = ({ message, isLastMessage = false }: MessageItemProps
               </div>
             )}
             <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&>p]:mb-4">
-              {memoizedMarkdown}
+              {isAI && !processedContent ? (
+                <LoadingDots className="text-current" />
+              ) : (
+                memoizedMarkdown
+              )}
             </div>
           </div>
           
