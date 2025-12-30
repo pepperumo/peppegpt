@@ -1,5 +1,5 @@
 from pydantic_ai.providers.openai import OpenAIProvider
-from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.models.openai import OpenAIModel
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.mcp import MCPServerHTTP
 from dataclasses import dataclass
@@ -43,7 +43,18 @@ def get_model():
     base_url = os.getenv('LLM_BASE_URL') or 'https://api.openai.com/v1'
     api_key = os.getenv('LLM_API_KEY') or 'ollama'
 
-    return OpenAIChatModel(llm, provider=OpenAIProvider(base_url=base_url, api_key=api_key))
+    return OpenAIModel(llm, provider=OpenAIProvider(base_url=base_url, api_key=api_key))
+
+
+def is_web_search_enabled() -> bool:
+    """Toggle web search tool via env flag.
+
+    WEB_SEARCH_ENABLED accepts: true/1/on/yes (default) or false/0/off/no.
+    """
+    raw = os.getenv("WEB_SEARCH_ENABLED")
+    if raw is None:
+        return True
+    return raw.strip().lower() not in {"false", "0", "off", "no"}
 
 # ========== Pydantic AI Agent ==========
 @dataclass
@@ -54,6 +65,7 @@ class AgentDeps:
     brave_api_key: str | None
     searxng_base_url: str | None
     memories: str
+    web_search_enabled: bool = True
     graph_client: Any = None  # Optional GraphitiClient
 
 # To use the code execution MCP server:
@@ -92,6 +104,12 @@ async def web_search(ctx: RunContext[AgentDeps], query: str) -> str:
         For SearXNG, this is a list of the top search results including the most relevant snippet from the page.
     """
     print("Calling web_search tool")
+    if not ctx.deps.web_search_enabled:
+        return "Web search is disabled by configuration."
+
+    if not ctx.deps.brave_api_key and not ctx.deps.searxng_base_url:
+        return "Web search is not configured (no Brave API key or SearXNG base URL)."
+
     return await web_search_tool(query, ctx.deps.http_client, ctx.deps.brave_api_key, ctx.deps.searxng_base_url)    
 
 @agent.tool

@@ -6,9 +6,93 @@ export interface PremadeQA {
   answer: string;
   followUpQuestions: string[];
   category: string;
+  aliases?: string[];
+  // If false, the question will not appear in random suggestions but is still matchable via findQA/aliases
+  suggestible?: boolean;
 }
 
+// Integrity check: ensure every premade question has an answer and category
+const warnIfInvalidPremade = () => {
+  const invalid = premadeQAs.filter(
+    qa => !qa.question?.trim() || !qa.answer?.trim() || !qa.category?.trim()
+  );
+  if (invalid.length > 0) {
+    console.warn(
+      `[premadeQA] Found ${invalid.length} incomplete entries (missing question/answer/category). Please fix to keep answers CV-accurate:`,
+      invalid.map(qa => qa.question)
+    );
+  }
+};
+
+const normalize = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/[?.!]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
 export const premadeQAs: PremadeQA[] = [
+  {
+    question: "Can you summarize Giuseppe's CV?",
+  answer: `**Name & Contact:**
+- Giuseppe Rumore
+- Berlin, Germany
+- Email: pepperumo@gmail.com
+- LinkedIn: https://www.linkedin.com/in/giuseppe-rumore-b2599961/
+- GitHub: https://github.com/pepperumo
+
+**Profile Summary:**
+- AI Agent / MLOps engineer focused on LangGraph/LangChain agents, production RAG, and n8n automation.
+- Currently at CountX (since Nov 2025) delivering workflow automations and RAG for internal knowledge.
+
+**Professional Experience & Results:**
+- CountX: Built LangGraph/LangChain agents and RAG systems; automated cross-department workflows with n8n.
+- ERP & Manufacturing (Steltix, IMI): ERP data pipelines, quality analytics, and robotics; improved efficiency and reduced manual effort.
+- Projects: YOLOv8 vehicle damage detection (claims cut from days to minutes); recommender systems; forecasting; anomaly detection.
+
+**Education:**
+- Data Science & MLOps, Université Paris 1 Panthéon-Sorbonne (2025)
+- MSc Mechanical Engineering, INSA Lyon (2015)
+
+**Certifications:**
+- AWS Cloud Practitioner, Azure Fundamentals, Stanford ML Specialization, Google Advanced Data Analytics, IBM SQL, CATIA/ANSYS FEM
+
+**Skills:**
+- Python, LangGraph/LangChain, FastAPI, RAG, n8n, CI/CD, Docker, React/TypeScript; SQL and data/ETL
+
+**Achievements:**
+- peppeGPT.com: Full-stack AI chatbot with LangGraph agents and guarded RAG
+- Vehicle Damage Detection: YOLOv8 CV system; claims processing accelerated drastically
+- ERP/Manufacturing: Data integrations and analytics improving efficiency and quality`,
+    aliases: [
+      "summarize giuseppe cv",
+      "resume giuseppe",
+      "cv giuseppe",
+      "cv of giuseppe",
+      "cv",
+      "resume",
+      "giuseppe curriculum vitae",
+      "giuseppe resume",
+      "peppe cv",
+      "peppe resume",
+      "summarize peppe cv",
+      "summarize giuseppe profile",
+      "give me giuseppe profile summary",
+      "who is giuseppe",
+      "overview of giuseppe",
+      "giuseppe resume summary",
+      "giuseppe short bio",
+      "giuseppe professional summary",
+      "profile of peppe",
+      "profile of pepe"
+    ],
+    followUpQuestions: [
+      "What roles are you targeting?",
+      "What technologies and tools does Giuseppe master?",
+      "Tell me about Giuseppe's professional experience with AI agents and RAG systems"
+    ],
+    category: "background"
+  },
   {
     question: "What is Giuseppe's background in AI and Machine Learning?",
     answer: `Giuseppe is an experienced Machine Learning Engineer and MLOps Engineer with a strong foundation in AI agents and automation. Currently working at CountX since November 2025, he specializes in:
@@ -24,12 +108,203 @@ export const premadeQAs: PremadeQA[] = [
 - Strong background in data analytics and deep learning
 
 His unique combination of mechanical engineering knowledge and ML expertise allows him to design and optimize complex systems with seamless AI integration.`,
+    aliases: [
+      "giuseppe ai background",
+      "giuseppe machine learning background",
+      "giuseppe ml experience",
+      "giuseppe ai experience overview",
+      "giuseppe ai ml summary"
+    ],
     followUpQuestions: [
-      "Tell me about Giuseppe's RAG system projects",
-      "What automation tools does Giuseppe work with?",
-      "What are Giuseppe's certifications in ML and cloud?"
+      "Tell me about Giuseppe's professional experience with AI agents and RAG systems",
+      "What technologies and tools does Giuseppe master?",
+      "What certifications and education does Giuseppe have?"
     ],
     category: "background"
+  },
+  {
+    question: "How does Giuseppe run Agile in his teams?",
+    answer: `Giuseppe applies pragmatic Agile with a focus on delivery and learning loops:
+
+- Scrum or Kanban depending on flow stability; lightweight ceremonies, strong async updates
+- Clear Definition of Ready/Done, small vertical slices, and CI/CD-first mindset
+- Sprint planning with story mapping, backlog refinement, and estimation when useful
+- Daily standups focused on blockers and priorities, not status theater
+- Demos and retros to tighten feedback loops and improve process continuously
+- Testing strategy (unit/integration/e2e) plus infra-as-code and reproducible environments
+
+He keeps teams aligned with product/design, prioritizes outcomes over output, and documents decisions so changes stay discoverable.`,
+    aliases: [
+      "how do you work in agile",
+      "what is your agile approach",
+      "how do you handle scrum",
+      "how do you handle kanban",
+      "how do you manage sprints",
+      "how do you run standups",
+      "agile methodology",
+      "how does giuseppe run agile",
+      "how does peppe run agile",
+      "how does pepe run agile"
+    ],
+    followUpQuestions: [
+      "Does Giuseppe mentor or lead?",
+      "How does Giuseppe ensure production quality for ML systems?",
+      "Which stack does Giuseppe prefer day-to-day?"
+    ],
+    category: "agile_process"
+  },
+  {
+    question: "How does Giuseppe ensure production quality for ML systems?",
+    answer: `He treats ML like software plus data:
+
+- Offline evals with clear acceptance thresholds; regression tests for models/data pipelines
+- Online safety nets: canaries, shadow deployments, feature flags, and rollback plans
+- Observability: traces/metrics/logs for latency, cost, drift, and answer quality; feedback loops for human review
+- Data quality gates and schema checks; automated retraining/refresh with approvals
+- Documentation and runbooks so incidents are fast to triage
+
+This keeps RAG/agent systems reliable while iterating quickly.`,
+    aliases: [
+      "how do you ensure ml quality",
+      "how do you test ml systems",
+      "how do you monitor rag",
+      "mlops quality",
+      "production readiness for ml",
+      "how does giuseppe ensure ml quality",
+      "how does peppe ensure ml quality",
+      "how does pepe ensure ml quality"
+    ],
+    followUpQuestions: [
+      "How does Giuseppe run Agile in his teams?",
+      "Which stack does Giuseppe prefer day-to-day?",
+      "Tell me about Giuseppe's peppeGPT.com project"
+    ],
+    category: "mlops_quality",
+    suggestible: false
+  },
+  {
+    question: "How does Giuseppe design a RAG or agent system?",
+    answer: `Start from the user journey and retrieval sources, then:
+
+1) Scope: define intents, guardrails, and latency/quality targets
+2) Ingestion: chunking, metadata, embeddings; graph or vector store selection
+3) Orchestration: LangGraph/LangChain planner with tools (search, DB, APIs) and fallbacks
+4) Evaluation: offline test sets, synthetic evals, and human-in-the-loop review
+5) Observability: trace spans, cost/latency, answer grading, and drift alerts
+6) Safety: grounding checks, citations, and refusal policies
+
+Ship small, instrument heavily, and iterate with real user feedback.`,
+    aliases: [
+      "how do you build rag",
+      "how do you design agent systems",
+      "rag design",
+      "agent architecture",
+      "how to architect rag",
+      "how does giuseppe design rag",
+      "how does peppe design rag",
+      "how does pepe design rag"
+    ],
+    followUpQuestions: [
+      "How does Giuseppe ensure production quality for ML systems?",
+      "Which stack does Giuseppe prefer day-to-day?",
+      "Tell me about Giuseppe's professional experience with AI agents and RAG systems"
+    ],
+    category: "ai_experience",
+    suggestible: false
+  },
+  {
+    question: "How does Giuseppe collaborate with PMs and engineering leads?",
+    answer: `He aligns on outcomes, constraints, and success metrics first, then keeps a tight feedback loop:
+
+- Co-writes specs and acceptance criteria; negotiates scope into incremental releases
+- Shares quick prototypes to validate assumptions before scaling
+- Maintains clear comms on risks, dependencies, and trade-offs; raises blockers early
+- Uses dashboards/metrics to make progress and quality visible to stakeholders
+
+Result: predictable delivery without surprises, with space for technical excellence.`,
+    aliases: [
+      "how do you work with product managers",
+      "how do you work with engineering managers",
+      "collaboration with pm",
+      "collaboration with eng leads",
+      "working with stakeholders",
+      "how does giuseppe work with product managers",
+      "how does peppe work with product managers",
+      "how does pepe work with product managers"
+    ],
+    followUpQuestions: [
+      "How does Giuseppe run Agile in his teams?",
+      "Does Giuseppe mentor or lead?",
+      "Which stack does Giuseppe prefer day-to-day?"
+    ],
+    category: "collaboration",
+    suggestible: false
+  },
+  {
+    question: "Can Giuseppe explain AI agents to non-technical people?",
+    answer: `Think of an AI agent as a helpful assistant that can read, retrieve, and take bounded actions:
+
+- It understands your request, gathers info (search/DB/docs), and proposes an answer with sources
+- It can follow rules ("only use company docs", "don’t change data") and ask clarifying questions
+- Safety comes from guardrails: allowed tools, grounded retrieval, and human approvals when needed
+
+This makes complex tasks simpler while keeping humans in control.`,
+    aliases: [
+      "what is an ai agent",
+      "explain ai agents simply",
+      "ai agents for non technical",
+      "ai agent in simple terms",
+      "can giuseppe explain ai agents",
+      "can peppe explain ai agents",
+      "can pepe explain ai agents"
+    ],
+    followUpQuestions: [
+      "How does Giuseppe design a RAG or agent system?",
+      "What is Giuseppe's background in AI and Machine Learning?",
+      "How does Giuseppe ensure production quality for ML systems?"
+    ],
+    category: "general_public",
+    suggestible: false
+  },
+  {
+    question: "Can I try Giuseppe's chatbot?",
+    answer: `Yes—peppeGPT.com is his full-stack AI chatbot with LangGraph agents and RAG. It streams responses, supports multi-step reasoning, and uses guarded retrieval.`,
+    aliases: [
+      "can i try peppegpt",
+      "can i test your bot",
+      "how do i use your chatbot",
+      "where can i try your ai",
+      "can i try giuseppe's chatbot",
+      "can i try peppe's chatbot",
+      "can i try pepe's chatbot"
+    ],
+    followUpQuestions: [
+      "What is Giuseppe's GitHub profile?",
+      "What is Giuseppe's LinkedIn profile?",
+      "How does Giuseppe design a RAG or agent system?"
+    ],
+    category: "general_public",
+    suggestible: false
+  },
+  {
+    question: "What project is Giuseppe most proud of?",
+    answer: `peppeGPT.com—a production-style AI agent platform with LangGraph orchestration, guarded RAG (Docling + Neo4j), and full-stack deployment (FastAPI, React/TS, Docker, Nginx). It shows end-to-end ownership from data ingestion to UX.`,
+    aliases: [
+      "favorite project",
+      "project you are proud of",
+      "coolest project",
+      "best project",
+      "project giuseppe is proud of",
+      "project peppe is proud of",
+      "project pepe is proud of"
+    ],
+    followUpQuestions: [
+      "Tell me about Giuseppe's peppeGPT.com project",
+      "How does Giuseppe design a RAG or agent system?",
+      "How does Giuseppe ensure production quality for ML systems?"
+    ],
+    category: "general_public",
+    suggestible: false
   },
   {
     question: "Tell me about Giuseppe's professional experience with AI agents and RAG systems",
@@ -47,10 +322,17 @@ His unique combination of mechanical engineering knowledge and ML expertise allo
 - Implemented RAG pipeline with Docling for intelligent document processing, integrated with Neo4j knowledge graph
 
 His expertise spans the full lifecycle from design to deployment of production-ready AI systems.`,
+    aliases: [
+      "giuseppe ai agents experience",
+      "giuseppe rag experience",
+      "giuseppe langgraph experience",
+      "giuseppe langchain experience",
+      "giuseppe agent work"
+    ],
     followUpQuestions: [
-      "What projects has Giuseppe built with n8n?",
-      "Tell me about Giuseppe's peppeGPT.com project",
-      "What technologies does Giuseppe use for RAG systems?"
+      "What data science and ML projects has Giuseppe completed?",
+      "Tell me about Giuseppe's work at CountX",
+      "Tell me about Giuseppe's peppeGPT.com project"
     ],
     category: "ai_experience"
   },
@@ -72,10 +354,16 @@ His expertise spans the full lifecycle from design to deployment of production-r
 - **Genetic Algorithm CAD Optimization (2024)** - Leveraging genetic algorithms to optimize CAD designs in FreeCAD, focusing on structural efficiency while minimizing material usage
 
 All projects feature production-ready deployments with modern MLOps practices, containerization, and comprehensive documentation.`,
+    aliases: [
+      "giuseppe ml projects",
+      "giuseppe data science projects",
+      "projects giuseppe built",
+      "giuseppe portfolio projects"
+    ],
     followUpQuestions: [
       "Tell me about Giuseppe's vehicle damage detection system",
-      "What is Giuseppe's approach to MLOps and deployment?",
-      "How does Giuseppe integrate AI with engineering?"
+      "How does Giuseppe integrate AI with traditional engineering?",
+      "What programming languages does Giuseppe master?"
     ],
     category: "projects"
   },
@@ -106,10 +394,16 @@ All projects feature production-ready deployments with modern MLOps practices, c
 - Udemy: ROS2 Odometry and Control
 
 This combination gives him a unique edge in applying AI to complex engineering problems.`,
+    aliases: [
+      "giuseppe education",
+      "giuseppe certifications",
+      "giuseppe degrees",
+      "giuseppe studies"
+    ],
     followUpQuestions: [
-      "What cloud platforms does Giuseppe work with?",
-      "How does Giuseppe combine engineering and ML?",
-      "What programming languages does Giuseppe master?"
+      "What technologies and tools does Giuseppe master?",
+      "What languages does Giuseppe speak?",
+      "What is Giuseppe's experience with ERP and manufacturing?"
     ],
     category: "education"
   },
@@ -153,10 +447,16 @@ This combination gives him a unique edge in applying AI to complex engineering p
 - ANSYS WorkBench for FEM analysis
 
 This diverse skillset enables him to build end-to-end AI solutions from data processing to production deployment.`,
+    aliases: [
+      "giuseppe tech stack",
+      "giuseppe tools",
+      "giuseppe technologies",
+      "giuseppe stack"
+    ],
     followUpQuestions: [
-      "What cloud services does Giuseppe prefer for ML deployment?",
-      "Tell me about Giuseppe's experience with n8n",
-      "How does Giuseppe approach MLOps best practices?"
+      "What programming languages does Giuseppe master?",
+      "Tell me about Giuseppe's peppeGPT.com project",
+      "Tell me about Giuseppe's work at CountX"
     ],
     category: "skills"
   },
@@ -180,10 +480,16 @@ This diverse skillset enables him to build end-to-end AI solutions from data pro
 The automation solutions have transformed how different departments work, reducing manual effort and improving decision-making through AI-enhanced processes.
 
 This role showcases Giuseppe's ability to apply cutting-edge AI technologies to solve real business problems at scale.`,
+    aliases: [
+      "giuseppe countx work",
+      "giuseppe at countx",
+      "countx experience giuseppe",
+      "giuseppe role at countx"
+    ],
     followUpQuestions: [
-      "What other companies has Giuseppe worked for?",
-      "Tell me about Giuseppe's ERP consulting experience",
-      "What industries has Giuseppe worked in?"
+      "What is Giuseppe's background in AI and Machine Learning?",
+      "What is Giuseppe's experience with ERP and manufacturing?",
+      "Tell me about Giuseppe's professional experience with AI agents and RAG systems"
     ],
     category: "work_experience"
   },
@@ -209,10 +515,16 @@ This role showcases Giuseppe's ability to apply cutting-edge AI technologies to 
 - Introduced robotic automation to assembly processes, **reducing setup time by 20%**
 
 This experience gives him unique insight into applying AI/ML to real-world industrial challenges.`,
+    aliases: [
+      "giuseppe manufacturing experience",
+      "giuseppe erp experience",
+      "erp projects giuseppe",
+      "manufacturing background giuseppe"
+    ],
     followUpQuestions: [
-      "How does Giuseppe apply AI to manufacturing?",
-      "What results has Giuseppe achieved in production environments?",
-      "Tell me about Giuseppe's data-driven approach"
+      "How does Giuseppe integrate AI with traditional engineering?",
+      "What data science and ML projects has Giuseppe completed?",
+      "What is Giuseppe's background in AI and Machine Learning?"
     ],
     category: "manufacturing"
   },
@@ -245,10 +557,16 @@ This experience gives him unique insight into applying AI/ML to real-world indus
 - Multi-LLM provider support (OpenAI, Ollama, OpenRouter)
 
 This project demonstrates Giuseppe's ability to architect and deploy production-ready AI systems with modern best practices.`,
+    aliases: [
+      "giuseppe peppegpt project",
+      "peppegpt.com details",
+      "peppe gpt project",
+      "giuseppe chatbot project"
+    ],
     followUpQuestions: [
-      "What other web projects has Giuseppe built?",
-      "How does Giuseppe handle authentication and security?",
-      "Tell me about Giuseppe's deployment strategies"
+      "What technologies and tools does Giuseppe master?",
+      "What programming languages does Giuseppe master?",
+      "What languages does Giuseppe speak?"
     ],
     category: "projects"
   },
@@ -274,10 +592,16 @@ This project demonstrates Giuseppe's ability to architect and deploy production-
 This linguistic versatility is a significant asset in international work environments and demonstrates Giuseppe's commitment to continuous learning. Being able to communicate fluently in 5+ languages enables him to collaborate effectively with global teams and understand diverse markets.
 
 Combined with his technical expertise, this makes him particularly valuable for international projects and multicultural teams in the AI/ML space.`,
+    aliases: [
+      "giuseppe languages",
+      "languages spoken by giuseppe",
+      "what languages does peppe speak",
+      "what languages does pepe speak"
+    ],
     followUpQuestions: [
-      "Where has Giuseppe worked internationally?",
-      "What countries has Giuseppe studied in?",
-      "How does Giuseppe's international experience benefit his work?"
+      "What is Giuseppe's background in AI and Machine Learning?",
+      "Tell me about Giuseppe's work at CountX",
+      "What certifications and education does Giuseppe have?"
     ],
     category: "languages"
   },
@@ -308,10 +632,16 @@ Combined with his technical expertise, this makes him particularly valuable for 
 - Fleet management and maintenance scheduling
 
 This project showcases Giuseppe's ability to apply deep learning to solve real-world business problems with measurable ROI. The system demonstrates expertise in computer vision, model deployment, and creating production-ready applications.`,
+    aliases: [
+      "giuseppe vehicle damage project",
+      "car damage detection giuseppe",
+      "auto damage detection giuseppe",
+      "vehicle damage giuseppe"
+    ],
     followUpQuestions: [
-      "What other computer vision projects has Giuseppe built?",
-      "How does Giuseppe train and optimize ML models?",
-      "Tell me about Giuseppe's approach to model deployment"
+      "What data science and ML projects has Giuseppe completed?",
+      "Tell me about Giuseppe's peppeGPT.com project",
+      "What technologies and tools does Giuseppe master?"
     ],
     category: "projects"
   },
@@ -350,10 +680,15 @@ This combination allows Giuseppe to:
 - Bridge communication between engineering and data science teams
 
 This interdisciplinary approach is increasingly valuable as industries embrace digital transformation and AI-driven design.`,
+    aliases: [
+      "giuseppe ai and engineering",
+      "ai plus mechanical engineering giuseppe",
+      "giuseppe integrates ai engineering"
+    ],
     followUpQuestions: [
-      "What CAD and simulation tools does Giuseppe use?",
-      "Tell me about Giuseppe's optimization projects",
-      "How does Giuseppe validate AI models in engineering contexts?"
+      "What is Giuseppe's experience with ERP and manufacturing?",
+      "What data science and ML projects has Giuseppe completed?",
+      "Tell me about Giuseppe's vehicle damage detection system"
     ],
     category: "engineering_ai"
   },
@@ -380,30 +715,277 @@ This interdisciplinary approach is increasingly valuable as industries embrace d
   - WebSockets for real-time communication
 
 Giuseppe's programming skills are applied practically across AI/ML development, data engineering, backend services, and full-stack applications. His Python expertise in particular enables him to build end-to-end solutions from data processing and model training to production deployment.`,
+    aliases: [
+      "giuseppe programming languages",
+      "what languages does giuseppe code in",
+      "giuseppe coding languages",
+      "which languages does giuseppe master"
+    ],
     followUpQuestions: [
-      "What ML frameworks does Giuseppe prefer?",
-      "How does Giuseppe approach backend API development?",
-      "Tell me about Giuseppe's data engineering experience"
+      "What technologies and tools does Giuseppe master?",
+      "What data science and ML projects has Giuseppe completed?",
+      "Tell me about Giuseppe's peppeGPT.com project"
     ],
     category: "skills"
+  },
+  {
+    question: "Where does Giuseppe live?",
+    answer: `Giuseppe is based in **Berlin, Germany**. This is his current home city and location for work and collaboration.`,
+    aliases: [
+      "where are you based",
+      "where do you live",
+      "what city are you in",
+      "what is your location",
+      "which country do you live in",
+      "where is giuseppe based",
+      "where is giuseppe located",
+      "where does giuseppe live",
+      "where does peppe live",
+      "where does pepe live",
+      "where is peppe based",
+      "where is pepe based",
+      "where is peppe located",
+      "where is pepe located"
+    ],
+    followUpQuestions: [
+      "What is Giuseppe's email?",
+      "What is Giuseppe's LinkedIn profile?",
+      "What is Giuseppe's GitHub profile?"
+    ],
+    category: "personal"
+  },
+  {
+    question: "What is Giuseppe's email?",
+    answer: `You can reach Giuseppe at **pepperumo@gmail.com**.`,
+    aliases: [
+      "what's your email",
+      "what is your email",
+      "your email address",
+      "how can i contact you",
+      "contact email",
+      "giuseppe email",
+      "giuseppe's email",
+      "what is giuseppe's email",
+      "what is peppe's email",
+      "what is pepe's email",
+      "email for giuseppe",
+      "email for peppe",
+      "email for pepe",
+      "peppe email",
+      "pepe email"
+    ],
+    followUpQuestions: [
+      "What is Giuseppe's LinkedIn profile?",
+      "What is Giuseppe's GitHub profile?",
+      "Where does Giuseppe live?"
+    ],
+    category: "personal"
+  },
+  {
+    question: "What is Giuseppe's LinkedIn profile?",
+    answer: `Giuseppe's LinkedIn: **https://www.linkedin.com/in/giuseppe-rumore-b2599961/**`,
+    aliases: [
+      "what is your linkedin",
+      "your linkedin",
+      "linkedin profile",
+      "giuseppe linkedin",
+      "giuseppe's linkedin",
+      "what is giuseppe's linkedin",
+      "what is peppe's linkedin",
+      "what is pepe's linkedin",
+      "peppe linkedin",
+      "pepe linkedin"
+    ],
+    followUpQuestions: [
+      "What is Giuseppe's GitHub profile?",
+      "What is Giuseppe's email?",
+      "Where does Giuseppe live?"
+    ],
+    category: "personal"
+  },
+  {
+    question: "What is Giuseppe's GitHub profile?",
+    answer: `Giuseppe's GitHub: **https://github.com/pepperumo**`,
+    aliases: [
+      "what is your github",
+      "your github",
+      "github profile",
+      "giuseppe github",
+      "giuseppe's github",
+      "what is giuseppe's github",
+      "what is peppe's github",
+      "what is pepe's github",
+      "peppe github",
+      "pepe github"
+    ],
+    followUpQuestions: [
+      "What is Giuseppe's LinkedIn profile?",
+      "What is Giuseppe's email?",
+      "Where does Giuseppe live?"
+    ],
+    category: "personal"
+  },
+  // Recruiter-focused Q&As (kept out of random suggestions)
+  {
+    question: "What roles are you targeting?",
+    answer:
+      "Giuseppe is targeting AI Agent Engineer / Senior ML Engineer roles.",
+    aliases: [
+      "which roles are you targeting",
+      "what roles are you looking for",
+      "what positions are you open to",
+      "preferred roles",
+      "what role are you targeting",
+      "what role are you looking for"
+    ],
+    followUpQuestions: [],
+    category: "recruiter",
+    suggestible: false
+  },
+  {
+    question: "Are you open to remote/hybrid/onsite?",
+    answer: "Based in Berlin, Germany; open to hybrid Berlin or fully-remote EU-friendly time zones.",
+    aliases: [
+      "are you open to remote",
+      "are you open to hybrid",
+      "remote or onsite",
+      "work mode",
+      "work location preference",
+      "can you work remotely",
+      "can you work hybrid"
+    ],
+    followUpQuestions: [],
+    category: "recruiter",
+    suggestible: false
+  },
+  {
+    question: "When can you start?",
+    answer: "Giuseppe has a 3-month notice period to his current employer; available to start after that.",
+    aliases: [
+      "what is your availability",
+      "availability to start",
+      "start date",
+      "when are you available",
+      "how soon can you start"
+    ],
+    followUpQuestions: [],
+    category: "recruiter",
+    suggestible: false
+  },
+  {
+    question: "Do you need visa sponsorship?",
+    answer: "Giuseppe is authorized to work in Germany/EU without sponsorship.",
+    aliases: [
+      "do you require visa sponsorship",
+      "visa status",
+      "work authorization",
+      "work permit",
+      "do you need sponsorship"
+    ],
+    followUpQuestions: [],
+    category: "recruiter",
+    suggestible: false
+  },
+  {
+    question: "What are your salary expectations?",
+    answer: "Giuseppe is happy to discuss after role/level is confirmed; open to market-aligned compensation.",
+    aliases: [
+      "salary expectations",
+      "compensation expectations",
+      "expected salary",
+      "comp range",
+      "pay expectations"
+    ],
+    followUpQuestions: [],
+    category: "recruiter",
+    suggestible: false
+  },
+  {
+    question: "Which domains do you prefer?",
+    answer: "Giuseppe prefers AI agents, RAG, automation, and data/ML platforms; strong fit for product teams building applied AI.",
+    aliases: [
+      "preferred domains",
+      "which industries do you like",
+      "domain interests",
+      "industry preferences",
+      "which domains do you like"
+    ],
+    followUpQuestions: [],
+    category: "recruiter",
+    suggestible: false
+  },
+  {
+    question: "Do you mentor or lead?",
+    answer: "Giuseppe leads by example—pairing, code reviews, and infra/ML best practices; comfortable mentoring juniors.",
+    aliases: [
+      "do you mentor",
+      "do you lead",
+      "leadership style",
+      "mentoring approach",
+      "do you manage people"
+    ],
+    followUpQuestions: [],
+    category: "recruiter",
+    suggestible: false
+  },
+  {
+    question: "Which stack do you prefer day-to-day?",
+    answer:
+      "Giuseppe prefers Python (ML/MLOps), LangChain/LangGraph, FastAPI, RAG pipelines, n8n orchestration; React/TS for UI integration.",
+    aliases: [
+      "preferred stack",
+      "tech stack preference",
+      "day to day stack",
+      "favorite stack",
+      "stack you prefer"
+    ],
+    followUpQuestions: [],
+    category: "recruiter",
+    suggestible: false
+  },
+  {
+    question: "Are you open to occasional travel?",
+    answer: "Giuseppe is open to occasional travel for on-sites, kickoffs, or key milestones.",
+    aliases: [
+      "are you willing to travel",
+      "travel availability",
+      "can you travel occasionally",
+      "open to travel"
+    ],
+    followUpQuestions: [],
+    category: "recruiter",
+    suggestible: false
   }
 ];
+
+// Run the integrity check once on module load
+warnIfInvalidPremade();
 
 // Function to get a random selection of questions
 export const getRandomQuestions = (count: number, exclude: string[] = []): PremadeQA[] => {
   const availableQuestions = premadeQAs.filter(
-    qa => !exclude.includes(qa.question)
+    qa => qa.suggestible !== false && !exclude.includes(qa.question)
   );
-  
-  const shuffled = [...availableQuestions].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, Math.min(count, shuffled.length));
+
+  const prioritized = availableQuestions.find(
+    qa => normalize(qa.question) === normalize("Can you summarize Giuseppe's CV?")
+  );
+
+  const rest = availableQuestions.filter(qa => qa !== prioritized);
+  const shuffledRest = [...rest].sort(() => Math.random() - 0.5);
+
+  const ordered = prioritized ? [prioritized, ...shuffledRest] : shuffledRest;
+  return ordered.slice(0, Math.min(count, ordered.length));
 };
 
 // Function to find a specific Q&A by question text
 export const findQA = (question: string): PremadeQA | undefined => {
-  return premadeQAs.find(qa => 
-    qa.question.toLowerCase() === question.toLowerCase()
-  );
+  const norm = normalize(question);
+
+  const exact = premadeQAs.find(qa => normalize(qa.question) === norm);
+  if (exact) return exact;
+
+  return premadeQAs.find(qa => qa.aliases?.some(alias => normalize(alias) === norm));
 };
 
 // Function to get follow-up questions based on current conversation
@@ -430,7 +1012,7 @@ export const getContextualFollowUps = (
   
   // Try to get questions from categories not yet explored
   const unexploredQuestions = premadeQAs.filter(
-    qa => !categoriesAsked.has(qa.category) && !askedQuestions.includes(qa.question)
+    qa => qa.suggestible !== false && !categoriesAsked.has(qa.category) && !askedQuestions.includes(qa.question)
   );
   
   if (unexploredQuestions.length > 0) {

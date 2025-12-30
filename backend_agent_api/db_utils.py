@@ -239,5 +239,14 @@ async def store_request(supabase: Client, request_id: str, user_id: str, query: 
             "timestamp": datetime.now(timezone.utc).isoformat()
         }).execute()
     except Exception as e:
-        print(f"Error storing request: {str(e)}")
+        # If the foreign key to user_profiles fails (common for public API IDs
+        # that don't exist in auth/users), log a concise hint instead of noisy
+        # stack traces. This keeps public endpoints working while allowing
+        # operators to configure PUBLIC_REQUEST_USER_ID to map to a real user.
+        message = str(e)
+        if "foreign key constraint" in message or "requests_user_id_fkey" in message:
+            print("Error storing request: user_id has no matching user_profiles row. "
+                  "Set PUBLIC_REQUEST_USER_ID to an existing user to enable request logging.")
+        else:
+            print(f"Error storing request: {message}")
 

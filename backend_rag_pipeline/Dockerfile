@@ -47,8 +47,7 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Set Playwright browsers path to a location accessible by non-root user
 ENV PLAYWRIGHT_BROWSERS_PATH=/app/.playwright

@@ -741,6 +741,21 @@ def ip_to_uuid(ip_address: str) -> str:
     return str(uuid.uuid5(namespace, f"public-api:{ip_address}"))
 
 
+def get_public_request_user_id(request: Request) -> str:
+    """Return the user_id to use for public requests.
+
+    Prefers an explicit PUBLIC_REQUEST_USER_ID env var (should reference an existing
+    auth/user_profiles row) to satisfy the FK on requests.user_id. Falls back to
+    IP-based deterministic UUID if the env var is not set.
+    """
+
+    if public_env_user := os.getenv("PUBLIC_REQUEST_USER_ID"):
+        return public_env_user
+
+    client_ip = get_client_ip(request)
+    return ip_to_uuid(client_ip)
+
+
 @app.post("/api/public/chat", response_model=PublicChatResponse)
 async def public_chat(chat_request: PublicChatRequest, request: Request):
     """
@@ -763,8 +778,7 @@ async def public_chat(chat_request: PublicChatRequest, request: Request):
         HTTPException 400: If query is invalid
     """
     # Get client IP address and convert to UUID for rate limiting
-    client_ip = get_client_ip(request)
-    public_user_id = ip_to_uuid(client_ip)  # Convert IP to deterministic UUID
+    public_user_id = get_public_request_user_id(request)
 
     # Validate query
     query = chat_request.query.strip()
@@ -829,8 +843,7 @@ async def public_chat_stream(chat_request: PublicChatRequest, request: Request):
         StreamingResponse with chunked AI response
     """
     # Get client IP address and convert to UUID for rate limiting
-    client_ip = get_client_ip(request)
-    public_user_id = ip_to_uuid(client_ip)  # Convert IP to deterministic UUID
+    public_user_id = get_public_request_user_id(request)
 
     # Validate query
     query = chat_request.query.strip()

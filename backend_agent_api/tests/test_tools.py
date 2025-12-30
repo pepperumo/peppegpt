@@ -520,7 +520,7 @@ class TestDocumentTools:
 
 class TestImageAnalysisTool:
     @pytest.mark.asyncio
-    @patch('tools.OpenAIChatModel')
+    @patch('tools.OpenAIModel')
     @patch('tools.OpenAIProvider')
     @patch('tools.Agent')
     @patch('tools.os.getenv')

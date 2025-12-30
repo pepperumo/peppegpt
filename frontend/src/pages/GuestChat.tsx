@@ -1,11 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { MessageList } from '@/components/chat/MessageList';
-import { ChatInput } from '@/components/chat/ChatInput';
-import { ProjectInfoPanel } from '@/components/chat/ProjectInfoPanel';
-import { LogIn, AlertCircle } from 'lucide-react';
+import { ChatLayout } from '@/components/chat/ChatLayout';
 import { Message } from '@/types/database.types';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useNavigate } from 'react-router-dom';
 import { findQA, simulateStreaming } from '@/lib/premadeQA';
 
@@ -196,58 +191,14 @@ export const GuestChat = () => {
   };
 
   return (
-    <div className="flex h-screen bg-background flex-col overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between h-14 border-b px-4 bg-secondary/30">
-        <div className="flex items-center gap-3">
-          <img src="/giuseppe-avatar.jpg" alt="Giuseppe" className="h-8 w-8 rounded-full object-cover" />
-          <span className="font-semibold">PeppeGPT</span>
-          <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded">
-            Guest Mode
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <ProjectInfoPanel />
-          <Button variant="outline" size="sm" onClick={handleSignIn}>
-            <LogIn className="h-4 w-4 mr-2" />
-            Sign In
-          </Button>
-        </div>
-      </div>
-
-      {/* Chat content */}
-      <div className="flex-1 flex flex-col overflow-hidden w-full">
-        <main className="flex-1 flex flex-col overflow-hidden">
-          {error && (
-            <Alert variant="destructive" className="m-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          <div className="flex-1 overflow-hidden relative">
-            <MessageList
-              messages={messages}
-              isLoading={loading}
-              isGeneratingResponse={false}
-              onSendMessage={handleSendMessage}
-            />
-          </div>
-
-          <div className="border-t">
-            <div className="p-4 max-w-4xl mx-auto w-full">
-              <ChatInput
-                onSendMessage={handleSendMessage}
-                isLoading={loading}
-              />
-              <div className="mt-2 text-xs text-center text-muted-foreground">
-                Guest mode - conversations are not saved. <button onClick={handleSignIn} className="underline hover:text-foreground">Sign in</button> for full features.
-              </div>
-            </div>
-          </div>
-        </main>
-      </div>
-    </div>
+    <ChatLayout
+      messages={messages}
+      loading={loading}
+      error={error}
+      onSendMessage={handleSendMessage}
+      isGuest={true}
+      onSignIn={handleSignIn}
+    />
   );
 };
 

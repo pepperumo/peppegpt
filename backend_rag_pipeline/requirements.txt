@@ -70,8 +70,10 @@ docling>=1.0.0
 docling-core>=1.0.0
 easyocr>=1.7.0
 pytesseract>=0.3.10
-torch>=2.0.0
-torchvision>=0.15.0
+--extra-index-url https://download.pytorch.org/whl/cpu
+# Use CPU-only PyTorch wheels; torchvision CPU wheels are distributed without the +cpu tag
+torch==2.9.1+cpu
+torchvision==0.24.1
 transformers>=4.30.0
 opencv-python-headless>=4.8.0
 
