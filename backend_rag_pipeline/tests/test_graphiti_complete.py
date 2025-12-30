@@ -8,6 +8,7 @@ import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+import pytest
 
 # Add the backend paths to sys.path
 sys.path.insert(0, str(Path(__file__).parent / "backend_agent_api"))
@@ -20,6 +21,11 @@ load_dotenv()
 # Import after adding to path
 from graph_utils import GraphitiClient, GRAPHITI_AVAILABLE
 
+if not os.getenv("ENABLE_GRAPHITI_TESTS"):
+    pytest.skip("Graphiti tests disabled by default. Set ENABLE_GRAPHITI_TESTS=1 to run.", allow_module_level=True)
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(not GRAPHITI_AVAILABLE, reason="Graphiti not available in this environment")
 async def test_graphiti_complete():
     """Complete test of Graphiti functionality."""
     print("=" * 80)

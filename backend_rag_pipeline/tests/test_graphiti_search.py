@@ -8,6 +8,10 @@ import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+import pytest
+
+if not os.getenv("ENABLE_GRAPHITI_TESTS"):
+    pytest.skip("Graphiti tests disabled by default. Set ENABLE_GRAPHITI_TESTS=1 to run.", allow_module_level=True)
 
 # Add the backend paths to sys.path
 sys.path.insert(0, str(Path(__file__).parent / "backend_agent_api"))
@@ -20,6 +24,9 @@ load_dotenv()
 # Import after adding to path
 from graph_utils import GraphitiClient, GRAPHITI_AVAILABLE
 
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(not GRAPHITI_AVAILABLE, reason="Graphiti not available in this environment")
 async def test_graphiti_search():
     """Test Graphiti search functionality."""
     print("=" * 80)
@@ -108,6 +115,7 @@ async def test_graphiti_search():
             else:
                 print(f"   [EMPTY] No results found")
 
+            import pytest
         except Exception as e:
             print(f"   ERROR during search: {e}")
             import traceback
@@ -119,6 +127,7 @@ async def test_graphiti_search():
         print(f"\n   Query: '{query}'")
         try:
             results = await client.search(query)
+
             if results:
                 print(f"   [FOUND] {len(results)} results:")
                 for i, result in enumerate(results[:3]):

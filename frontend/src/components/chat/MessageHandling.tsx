@@ -4,6 +4,7 @@ import { Message, FileAttachment, Conversation } from '@/types/database.types';
 import { sendMessage, fetchMessages } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { Session, User } from '@supabase/supabase-js';
+import { findQA, simulateStreaming } from '@/lib/premadeQA';
 
 interface MessageHandlingProps {
   user: User | null;
@@ -60,6 +61,65 @@ export const useMessageHandling = ({
       // Update UI with user message
       setMessages((prev) => [...prev, userMessage]);
       
+      // Check if this is a pre-made question
+      const premadeQA = findQA(content);
+      
+      if (premadeQA) {
+        // Handle pre-made answer with simulated streaming
+        const aiMessageId = `temp-${Date.now()}-ai`;
+        
+        // Create initial AI message with empty content
+        const aiMessage: Message = {
+          id: aiMessageId,
+          session_id: currentSessionId || `guest-${Date.now()}`,
+          computed_session_user_id: '',
+          message: {
+            type: 'ai',
+            content: '',
+          },
+          created_at: new Date().toISOString(),
+        };
+        
+        // Add empty AI message
+        setMessages((prev) => [...prev, aiMessage]);
+        
+        // Simulate streaming with 2-3 second initial delay
+        const initialDelay = 2000 + Math.random() * 1000; // 2-3 seconds
+        
+        await simulateStreaming(
+          premadeQA.answer,
+          (chunk) => {
+            if (!isMounted.current) return;
+            
+            setMessages((prev) => {
+              const updatedMessages = [...prev];
+              const aiMessageIndex = updatedMessages.findIndex(msg => msg.id === aiMessageId);
+              
+              if (aiMessageIndex !== -1) {
+                updatedMessages[aiMessageIndex] = {
+                  ...updatedMessages[aiMessageIndex],
+                  message: {
+                    ...updatedMessages[aiMessageIndex].message,
+                    content: chunk,
+                  },
+                };
+              }
+              
+              return updatedMessages;
+            });
+          },
+          initialDelay,
+          30 // 30ms delay between words
+        );
+        
+        // After streaming is complete, set loading to false
+        if (isMounted.current) {
+          setLoading(false);
+        }
+        
+        return; // Exit early for pre-made answers
+      }
+      
       // Track if this is a new conversation
       const isNewConversation = !currentSessionId;
       
@@ -68,7 +128,7 @@ export const useMessageHandling = ({
       let aiMessageCreated = false;
       let completionReceived = false;
       
-      // Send to webhook API with streaming callback
+      // Send to webhook API with streaming callback (for non-premade questions)
       const response = await sendMessage(
         content, 
         user.id, 

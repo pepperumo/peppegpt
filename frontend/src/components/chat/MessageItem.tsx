@@ -143,7 +143,7 @@ export const MessageItem = ({ message, isLastMessage = false }: MessageItemProps
           "max-w-[calc(100%-64px)]",
         )}>
           <div className="text-xs font-medium text-muted-foreground">
-            {isUser ? 'You' : 'AI Assistant'}
+            {isUser ? 'You' : 'PeppeGPT'}
           </div>
           
           <div className={cn(

@@ -1,5 +1,5 @@
 from pydantic_ai.providers.openai import OpenAIProvider
-from pydantic_ai.models.openai import OpenAIModel
+from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.mcp import MCPServerHTTP
 from dataclasses import dataclass
@@ -43,7 +43,7 @@ def get_model():
     base_url = os.getenv('LLM_BASE_URL') or 'https://api.openai.com/v1'
     api_key = os.getenv('LLM_API_KEY') or 'ollama'
 
-    return OpenAIModel(llm, provider=OpenAIProvider(base_url=base_url, api_key=api_key))
+    return OpenAIChatModel(llm, provider=OpenAIProvider(base_url=base_url, api_key=api_key))
 
 # ========== Pydantic AI Agent ==========
 @dataclass

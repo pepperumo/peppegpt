@@ -1,8 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Message } from '@/types/database.types';
 import { MessageItem } from './MessageItem';
+import { SuggestedQuestions } from './SuggestedQuestions';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { LoadingDots } from '@/components/ui/loading-dots';
+import { getRandomQuestions, getContextualFollowUps } from '@/lib/premadeQA';
 
 interface MessageListProps {
   messages: Message[];
@@ -10,17 +12,50 @@ interface MessageListProps {
   isGeneratingResponse?: boolean; // New prop to distinguish between loading states
   isLoadingMessages?: boolean; // New prop for when switching conversations
   onSendMessage?: (message: string) => void; // Optional callback to send a message
+  suggestedQuestions?: string[]; // External suggestions
+  showFollowUps?: boolean; // Show follow-up questions after each answer
 }
 
-export const MessageList = ({ messages, isLoading, isGeneratingResponse = false, isLoadingMessages = false, onSendMessage }: MessageListProps) => {
+export const MessageList = ({ 
+  messages, 
+  isLoading, 
+  isGeneratingResponse = false, 
+  isLoadingMessages = false, 
+  onSendMessage,
+  suggestedQuestions: externalSuggestions,
+  showFollowUps = true
+}: MessageListProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+  const [initialQuestions, setInitialQuestions] = useState<string[]>([]);
+  const [followUpQuestions, setFollowUpQuestions] = useState<string[]>([]);
 
-  const suggestedQuestions = [
-    "What is Giuseppe's professional experience with AI agents and RAG systems?",
-    "Tell me about Giuseppe's data science and machine learning projects",
-    "What certifications does Giuseppe have in ML, cloud, and MLOps?"
-  ];
+  // Generate initial random questions on mount
+  useEffect(() => {
+    const randomQuestions = getRandomQuestions(10);
+    setInitialQuestions(randomQuestions.map(qa => qa.question));
+  }, []);
+
+  // Update follow-up questions based on conversation
+  useEffect(() => {
+    if (messages.length > 0 && showFollowUps) {
+      const lastUserMessage = [...messages]
+        .reverse()
+        .find(m => m.message.type === 'human');
+      
+      if (lastUserMessage) {
+        const conversationHistory = messages
+          .filter(m => m.message.type === 'human')
+          .map(m => m.message.content);
+        
+        const followUps = getContextualFollowUps(
+          lastUserMessage.message.content,
+          conversationHistory
+        );
+        setFollowUpQuestions(followUps);
+      }
+    }
+  }, [messages, showFollowUps]);
 
   const handleQuestionClick = (question: string) => {
     if (onSendMessage && !isLoading) {
@@ -36,29 +71,28 @@ export const MessageList = ({ messages, isLoading, isGeneratingResponse = false,
     }, 50);
     
     return () => clearTimeout(scrollTimeout);
-  }, [messages, isGeneratingResponse]);
+  }, [messages, isGeneratingResponse, followUpQuestions]);
+
+  // Determine which questions to show
+  const questionsToShow = externalSuggestions || 
+    (messages.length === 0 ? initialQuestions : []);
 
   // Initial empty state
   if (messages.length === 0 && !isLoading) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 h-full">
-        <div className="max-w-md text-center">
-          <h3 className="text-xl font-bold mb-2">Welcome to PeppeGPT</h3>
-          <p className="text-muted-foreground mb-4">
-            Start a conversation by typing a message below.
+        <div className="max-w-2xl w-full text-center">
+          <h3 className="text-2xl font-bold mb-2">Welcome to PeppeGPT</h3>
+          <p className="text-muted-foreground mb-6">
+            Ask me anything about Giuseppe's experience, skills, and projects!
           </p>
-          <div className="grid gap-2 text-sm">
-            <p className="font-medium">Try asking:</p>
-            {suggestedQuestions.map((question, index) => (
-              <button
-                key={index}
-                onClick={() => handleQuestionClick(question)}
-                className="bg-secondary/50 p-3 rounded-md hover:bg-secondary transition-colors text-left cursor-pointer"
-              >
-                "{question}"
-              </button>
-            ))}
-          </div>
+          
+          <SuggestedQuestions
+            questions={questionsToShow.slice(0, 6)}
+            onQuestionClick={handleQuestionClick}
+            isLoading={isLoading}
+            title="Suggested questions:"
+          />
         </div>
       </div>
     );
@@ -68,11 +102,31 @@ export const MessageList = ({ messages, isLoading, isGeneratingResponse = false,
     <div className="absolute inset-0 overflow-y-auto">
       <div className="py-6 min-h-full mx-auto w-full max-w-4xl">
         {messages.map((message, index) => (
-          <div key={message.id} className="mb-6">
-            <MessageItem 
-              message={message}
-              isLastMessage={index === messages.length - 1} 
-            />
+          <div key={message.id}>
+            <div className="mb-6">
+              <MessageItem 
+                message={message}
+                isLastMessage={index === messages.length - 1} 
+              />
+            </div>
+            
+            {/* Show follow-up questions after AI responses */}
+            {showFollowUps && 
+             message.message.type === 'ai' && 
+             index === messages.length - 1 && 
+             !isGeneratingResponse &&
+             !isLoading &&
+             followUpQuestions.length > 0 && (
+              <div className="mb-6 px-4">
+                <SuggestedQuestions
+                  questions={followUpQuestions.slice(0, 3)}
+                  onQuestionClick={handleQuestionClick}
+                  isLoading={isLoading}
+                  title="Continue the conversation:"
+                  className="max-w-2xl"
+                />
+              </div>
+            )}
           </div>
         ))}
         

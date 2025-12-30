@@ -1,7 +1,7 @@
 from RestrictedPython import compile_restricted
 from RestrictedPython.Guards import safe_globals, safe_builtins, guarded_unpack_sequence
 from pydantic_ai.providers.openai import OpenAIProvider
-from pydantic_ai.models.openai import OpenAIModel
+from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai import Agent, BinaryContent
 from typing import Dict, Any, List, Optional
 from openai import AsyncOpenAI
@@ -367,7 +367,7 @@ async def image_analysis_tool(supabase: Client, document_id: str, query: str) ->
         api_key = os.getenv('LLM_API_KEY', 'no-api-key-provided')
 
         # Define the vision agent based on the environment variables
-        model = OpenAIModel(llm, provider=OpenAIProvider(base_url=base_url, api_key=api_key))
+        model = OpenAIChatModel(llm, provider=OpenAIProvider(base_url=base_url, api_key=api_key))
         vision_agent = Agent(
             model, 
             system_prompt="You are an image analyzer who looks at images provided and answers the accompanying query in detail."

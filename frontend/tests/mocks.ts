@@ -17,6 +17,30 @@ export const mockSession = {
 
 // Setup authentication mocks - much simpler approach
 export async function setupAuthenticatedMocks(page: Page) {
+  // Mock Supabase auth API endpoints
+  await page.route('**/auth/v1/token**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        access_token: 'mock-access-token',
+        refresh_token: 'mock-refresh-token',
+        expires_in: 3600,
+        expires_at: Date.now() / 1000 + 3600,
+        token_type: 'bearer',
+        user: mockUser
+      })
+    });
+  });
+
+  await page.route('**/auth/v1/user**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(mockUser)
+    });
+  });
+
   await page.addInitScript(() => {
     // Create a global mock object that will replace modules
     window.__MOCK_AUTH__ = {

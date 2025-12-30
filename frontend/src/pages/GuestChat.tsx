@@ -7,6 +7,7 @@ import { LogIn, AlertCircle } from 'lucide-react';
 import { Message } from '@/types/database.types';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useNavigate } from 'react-router-dom';
+import { findQA, simulateStreaming } from '@/lib/premadeQA';
 
 const AGENT_BASE_URL = import.meta.env.VITE_AGENT_ENDPOINT?.replace('/api/pydantic-agent', '') || 'http://localhost:8001';
 
@@ -47,7 +48,71 @@ export const GuestChat = () => {
     setLoading(true);
     setError(null);
 
-    // Create placeholder for assistant message (shows loading dots)
+    // Check if this is a pre-made question
+    const premadeQA = findQA(content);
+    
+    if (premadeQA) {
+      // Handle pre-made answer with simulated streaming
+      const assistantMessageId = `guest-assistant-${Date.now()}`;
+      const assistantMessage: Message = {
+        id: assistantMessageId,
+        session_id: 'guest-session',
+        computed_session_user_id: 'guest',
+        message: {
+          type: 'ai',
+          content: '',
+        },
+        created_at: new Date().toISOString(),
+      };
+      setMessages(prev => [...prev, assistantMessage]);
+      
+      // Simulate streaming with 2-3 second initial delay
+      const initialDelay = 2000 + Math.random() * 1000; // 2-3 seconds
+      
+      try {
+        await simulateStreaming(
+          premadeQA.answer,
+          (chunk) => {
+            if (!isMounted.current) return;
+            
+            setMessages((prev) => {
+              const updatedMessages = [...prev];
+              const aiMessageIndex = updatedMessages.findIndex(msg => msg.id === assistantMessageId);
+              
+              if (aiMessageIndex !== -1) {
+                updatedMessages[aiMessageIndex] = {
+                  ...updatedMessages[aiMessageIndex],
+                  message: {
+                    ...updatedMessages[aiMessageIndex].message,
+                    content: chunk,
+                  },
+                };
+              }
+              
+              return updatedMessages;
+            });
+          },
+          initialDelay,
+          30 // 30ms delay between words
+        );
+        
+        if (isMounted.current) {
+          setLoading(false);
+          setIsStreaming(false);
+        }
+      } catch (err) {
+        console.error('Error during simulated streaming:', err);
+        if (isMounted.current) {
+          setError('An error occurred while generating the response');
+          setLoading(false);
+          setIsStreaming(false);
+        }
+      }
+      
+      return; // Exit early for pre-made answers
+    }
+
+    // Create placeholder for assistant message (shows loading dots) for non-premade questions
     const assistantMessageId = `guest-assistant-${Date.now()}`;
     const assistantMessage: Message = {
       id: assistantMessageId,

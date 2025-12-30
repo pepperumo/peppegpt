@@ -9,8 +9,13 @@ import os
 import asyncio
 from pathlib import Path
 
+import pytest
+
 # Add backend_rag_pipeline to path
 sys.path.insert(0, str(Path(__file__).parent / 'backend_rag_pipeline'))
+
+if not os.getenv("ENABLE_GRAPHITI_TESTS"):
+    pytest.skip("Graphiti integration tests disabled by default. Set ENABLE_GRAPHITI_TESTS=1 to run.", allow_module_level=True)
 
 print("=" * 80)
 print("DOCLING + GRAPHITI INTEGRATION TEST")
