@@ -45,6 +45,7 @@ from pydantic_ai.messages import (
 
 from agent import agent, AgentDeps, get_model
 from clients import get_agent_clients, get_mem0_client_async, get_graph_client, initialize_graph_client
+from guardrails import apply_input_guardrails, apply_output_guardrails
 
 # Check if we're in production
 is_production = os.getenv("ENVIRONMENT") == "production"
@@ -218,7 +219,15 @@ async def pydantic_agent(request: AgentRequest, user: Dict[str, Any] = Depends(v
                 stream_error_response("Rate limit exceeded. Please try again later.", request.session_id),
                 media_type='text/plain'
             )
-        
+
+        # Apply input guardrails (prompt injection protection)
+        is_allowed, block_message = apply_input_guardrails(request.query)
+        if not is_allowed:
+            return StreamingResponse(
+                stream_error_response(block_message, request.session_id),
+                media_type='text/plain'
+            )
+
         # Start request tracking in parallel
         request_tracking_task = asyncio.create_task(
             store_request(supabase, request.request_id, request.user_id, request.query)
@@ -335,10 +344,11 @@ async def pydantic_agent(request: AgentRequest, user: Dict[str, Any] = Depends(v
                             async with node.stream(run.ctx) as request_stream:
                                 async for event in request_stream:
                                     if isinstance(event, PartStartEvent) and event.part.part_kind == 'text':
-                                        yield json.dumps({"text": event.part.content}).encode('utf-8') + b'\n'
-                                        full_response += event.part.content
+                                        content = apply_output_guardrails(event.part.content)
+                                        yield json.dumps({"text": content}).encode('utf-8') + b'\n'
+                                        full_response += content
                                     elif isinstance(event, PartDeltaEvent) and isinstance(event.delta, TextPartDelta):
-                                        delta = event.delta.content_delta
+                                        delta = apply_output_guardrails(event.delta.content_delta)
                                         yield json.dumps({"text": full_response}).encode('utf-8') + b'\n'
                                         full_response += delta
                 
@@ -785,6 +795,11 @@ async def public_chat(chat_request: PublicChatRequest, request: Request):
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be empty")
 
+    # Apply input guardrails (prompt injection protection)
+    is_allowed, block_message = apply_input_guardrails(query)
+    if not is_allowed:
+        return PublicChatResponse(response=block_message)
+
     # Check rate limit using existing function
     rate_limit = int(os.getenv("PUBLIC_API_RATE_LIMIT_MINUTE", "10"))
     rate_limit_ok = await check_rate_limit(supabase, public_user_id, rate_limit)
@@ -817,7 +832,9 @@ async def public_chat(chat_request: PublicChatRequest, request: Request):
         # Run the agent without streaming (simpler for public API)
         result = await agent.run(query, deps=agent_deps, message_history=message_history)
 
-        return PublicChatResponse(response=result.data)
+        # Apply output guardrails before returning
+        filtered_response = apply_output_guardrails(result.data)
+        return PublicChatResponse(response=filtered_response)
 
     except Exception as e:
         print(f"Error in public chat: {str(e)}")
@@ -850,6 +867,14 @@ async def public_chat_stream(chat_request: PublicChatRequest, request: Request):
     if not query:
         return StreamingResponse(
             stream_error_response("Query cannot be empty", "public"),
+            media_type='text/plain'
+        )
+
+    # Apply input guardrails (prompt injection protection)
+    is_allowed, block_message = apply_input_guardrails(query)
+    if not is_allowed:
+        return StreamingResponse(
+            stream_error_response(block_message, "public"),
             media_type='text/plain'
         )
 
@@ -890,10 +915,11 @@ async def public_chat_stream(chat_request: PublicChatRequest, request: Request):
                         async with node.stream(run.ctx) as request_stream:
                             async for event in request_stream:
                                 if isinstance(event, PartStartEvent) and event.part.part_kind == 'text':
-                                    yield json.dumps({"text": event.part.content}).encode('utf-8') + b'\n'
-                                    full_response += event.part.content
+                                    content = apply_output_guardrails(event.part.content)
+                                    yield json.dumps({"text": content}).encode('utf-8') + b'\n'
+                                    full_response += content
                                 elif isinstance(event, PartDeltaEvent) and isinstance(event.delta, TextPartDelta):
-                                    delta = event.delta.content_delta
+                                    delta = apply_output_guardrails(event.delta.content_delta)
                                     yield json.dumps({"text": full_response}).encode('utf-8') + b'\n'
                                     full_response += delta
 
