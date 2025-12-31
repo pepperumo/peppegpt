@@ -148,7 +148,6 @@ export const GuestChat = () => {
 
       const decoder = new TextDecoder();
       let fullText = '';
-      let uiResources: Array<{uri: string; mimeType: string; text: string}> = [];
 
       while (true) {
         const { done, value } = await reader.read();
@@ -173,28 +172,10 @@ export const GuestChat = () => {
                 );
               }
             }
-            // Capture UI resources from the final chunk
-            if (data.ui_resources) {
-              uiResources = data.ui_resources;
-            }
           } catch {
             // Ignore JSON parse errors for incomplete chunks
           }
         }
-      }
-
-      // If we have UI resources, prepend the marker to the content for rendering
-      if (uiResources.length > 0 && isMounted.current) {
-        const resourceMarkers = uiResources
-          .map(r => `__UI_RESOURCE__${JSON.stringify(r)}__END_UI_RESOURCE__`)
-          .join('');
-        setMessages(prev =>
-          prev.map(msg =>
-            msg.id === assistantMessageId
-              ? { ...msg, message: { ...msg.message, content: resourceMarkers + '\n\n' + fullText } }
-              : msg
-          )
-        );
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to send message';

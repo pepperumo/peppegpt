@@ -30,9 +30,6 @@ export const MessageList = ({
   const [initialQuestions, setInitialQuestions] = useState<string[]>([]);
   const [followUpQuestions, setFollowUpQuestions] = useState<string[]>([]);
 
-  // Permanent question that always appears
-  const SCHEDULE_CALL_QUESTION = "Schedule a call with Giuseppe";
-
   // Generate initial random questions on mount
   useEffect(() => {
     const randomQuestions = getRandomQuestions(10);
@@ -91,7 +88,7 @@ export const MessageList = ({
           </p>
           
           <SuggestedQuestions
-            questions={[...questionsToShow.slice(0, 5), SCHEDULE_CALL_QUESTION]}
+            questions={questionsToShow.slice(0, 6)}
             onQuestionClick={handleQuestionClick}
             isLoading={isLoading}
             title="Suggested questions:"
@@ -114,14 +111,15 @@ export const MessageList = ({
             </div>
             
             {/* Show follow-up questions after AI responses */}
-            {showFollowUps &&
-             message.message.type === 'ai' &&
-             index === messages.length - 1 &&
+            {showFollowUps && 
+             message.message.type === 'ai' && 
+             index === messages.length - 1 && 
              !isGeneratingResponse &&
-             !isLoading && (
+             !isLoading &&
+             followUpQuestions.length > 0 && (
               <div className="mb-6 px-4">
                 <SuggestedQuestions
-                  questions={[...followUpQuestions.slice(0, 2), SCHEDULE_CALL_QUESTION]}
+                  questions={followUpQuestions.slice(0, 3)}
                   onQuestionClick={handleQuestionClick}
                   isLoading={isLoading}
                   title="Continue the conversation:"

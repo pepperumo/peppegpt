@@ -128,7 +128,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({
         </div>
         
         <div className="border-t">
-          <div className="p-2 sm:p-4 max-w-4xl mx-auto w-full">
+          <div className="p-4 max-w-4xl mx-auto w-full">
             <ChatInput 
               onSendMessage={onSendMessage} 
               isLoading={loading}

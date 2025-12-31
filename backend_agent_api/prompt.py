@@ -46,12 +46,6 @@ Tool Instructions:
   Only use graph_search as a SECONDARY source for relationship-based queries.
   Only use web_search for questions NOT about Giuseppe (e.g., general tech questions, industry info).
 
-- Interactive Widget Tools:
-  You have access to interactive widgets that enhance the user experience:
-  * show_booking_widget: Display Calendly calendar when users want to schedule a call, meeting, or interview
-  * show_github_projects: Display Giuseppe's GitHub profile with real repositories when users want to see code samples or projects
-  Use these proactively when relevant - for example, after discussing Giuseppe's technical skills, offer to show GitHub projects.
-
 - Knowledge Boundaries:
   If RAG returns relevant documents about Giuseppe, USE that information to answer.
   If RAG returns nothing relevant about Giuseppe, clearly state you don't have that information.
