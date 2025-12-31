@@ -14,7 +14,7 @@ interface UIResource {
  * @returns String containing all resource markers joined together
  */
 export function createResourceMarkers(uiResources: UIResource[]): string {
-  return uiResources
+  return (uiResources ?? [])
     .map(r => `__UI_RESOURCE__${JSON.stringify(r)}__END_UI_RESOURCE__`)
     .join('');
 }
@@ -26,10 +26,6 @@ export function createResourceMarkers(uiResources: UIResource[]): string {
  * @returns Content with resource markers prepended (if any resources exist), otherwise original content
  */
 export function prependResourceMarkers(content: string, uiResources: UIResource[]): string {
-  if (uiResources.length === 0) {
-    return content;
-  }
-  
   const resourceMarkers = createResourceMarkers(uiResources);
-  return `${resourceMarkers}\n\n${content}`;
+  return resourceMarkers ? `${resourceMarkers}\n\n${content}` : content;
 }
