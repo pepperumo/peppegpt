@@ -20,6 +20,7 @@ interface StreamingChunk {
   complete?: boolean;
   conversation_title?: string;
   error?: string;
+  ui_resources?: Array<{uri: string; mimeType: string; text: string}>;
 }
 
 export const sendMessage = async (
@@ -124,38 +125,45 @@ export const sendMessage = async (
               // Each line should be a JSON object with a text field
               const chunk = JSON.parse(line);
               
-              // Process text if present
-              if (chunk.text !== undefined && chunk.text.trim() !== '') {
-                lastTextChunk = chunk.text;
-                finalText = chunk.text;
-                // Pass the chunk to the callback
-                onStreamChunk(chunk);
-              }
-              
               // Store metadata if present
               if (chunk.title) finalTitle = chunk.title;
               if (chunk.session_id) finalSessionId = chunk.session_id;
               if (chunk.conversation_title) finalTitle = chunk.conversation_title;
-              
+
+              // Process text if present
+              if (chunk.text !== undefined && chunk.text.trim() !== '') {
+                lastTextChunk = chunk.text;
+                finalText = chunk.text;
+                // Only pass non-completion chunks immediately
+                // Completion chunks are handled below to ensure ui_resources are included
+                if (!chunk.complete) {
+                  onStreamChunk(chunk);
+                }
+              }
+
               // Check if this chunk indicates completion
               if (chunk.complete === true) {
                 isCompleted = true;
-                
+
                 // If this chunk has text, use it as the final text
                 // Otherwise, keep the last text chunk we received
                 if (chunk.text !== undefined && chunk.text.trim() !== '') {
                   lastTextChunk = chunk.text;
                   finalText = chunk.text;
                 }
-                
-                // Send a final chunk with the complete flag to signal completion
-                onStreamChunk({
+
+                // Send a final completion chunk with metadata
+                // Include ui_resources if present in the original chunk
+                const completionChunk: StreamingChunk = {
                   text: lastTextChunk,
                   complete: true,
                   session_id: finalSessionId,
-                  conversation_title: finalTitle
-                });
-                
+                  conversation_title: finalTitle,
+                  ui_resources: chunk.ui_resources
+                };
+
+                onStreamChunk(completionChunk);
+
                 // We can exit the streaming loop now
                 return {
                   title: finalTitle || 'New conversation',

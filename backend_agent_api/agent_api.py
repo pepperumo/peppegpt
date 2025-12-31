@@ -358,13 +358,22 @@ async def pydantic_agent(request: AgentRequest, user: Dict[str, Any] = Depends(v
                     
             # After streaming is complete, store the full response in the database
             message_data = run.result.new_messages_json()
-            
+
+            # Build content with UI resource markers if any were generated
+            stored_content = full_response
+            if agent_deps.ui_resources:
+                resource_markers = ''.join(
+                    f"__UI_RESOURCE__{json.dumps(r)}__END_UI_RESOURCE__"
+                    for r in agent_deps.ui_resources
+                )
+                stored_content = resource_markers + '\n\n' + full_response
+
             # Store agent's response
             await store_message(
                 supabase=supabase,
                 session_id=session_id,
                 message_type="ai",
-                content=full_response,
+                content=stored_content,
                 message_data=message_data,
                 data={"request_id": request.request_id}
             )
@@ -376,19 +385,26 @@ async def pydantic_agent(request: AgentRequest, user: Dict[str, Any] = Depends(v
                     conversation_title = title_result
                     # Update the conversation title in the database
                     await update_conversation_title(supabase, session_id, conversation_title)
-                    
-                    # Send the final title in the last chunk
+
+                    # Send the final title in the last chunk, including any UI resources
                     final_data = {
                         "text": full_response,
                         "session_id": session_id,
                         "conversation_title": conversation_title,
                         "complete": True
                     }
+                    # Include UI resources if any were generated
+                    if agent_deps.ui_resources:
+                        final_data["ui_resources"] = agent_deps.ui_resources
                     yield json.dumps(final_data).encode('utf-8') + b'\n'
                 except Exception as e:
                     print(f"Error processing title: {str(e)}")
             else:
-                yield json.dumps({"text": full_response, "complete": True}).encode('utf-8') + b'\n'
+                final_data = {"text": full_response, "complete": True}
+                # Include UI resources if any were generated
+                if agent_deps.ui_resources:
+                    final_data["ui_resources"] = agent_deps.ui_resources
+                yield json.dumps(final_data).encode('utf-8') + b'\n'
 
             # Wait for the memory task to complete if needed
             try:
@@ -923,8 +939,11 @@ async def public_chat_stream(chat_request: PublicChatRequest, request: Request):
                                     yield json.dumps({"text": full_response}).encode('utf-8') + b'\n'
                                     full_response += delta
 
-            # Send final chunk
-            yield json.dumps({"text": full_response, "complete": True}).encode('utf-8') + b'\n'
+            # Send final chunk with UI resources if any were generated
+            final_data = {"text": full_response, "complete": True}
+            if agent_deps.ui_resources:
+                final_data["ui_resources"] = agent_deps.ui_resources
+            yield json.dumps(final_data).encode('utf-8') + b'\n'
 
         except Exception as e:
             print(f"Error in public chat stream: {str(e)}")

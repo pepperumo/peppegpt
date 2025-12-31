@@ -12,6 +12,7 @@ import { PrismLight as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { cn } from '@/lib/utils';
 import { LoadingDots } from '@/components/ui/loading-dots';
+import { UIResourceRenderer, extractUIResources } from '@/components/ui/UIResourceRenderer';
 
 interface MessageItemProps {
   message: Message;
@@ -38,10 +39,10 @@ export const MessageItem = ({ message, isLastMessage = false }: MessageItemProps
   const isAI = message.message.type.toLowerCase() === 'ai';
   const isUser = !isAI;
 
-  // Process the message content to properly handle double newlines
-  const processedContent = useMemo(() => {
-    if (!message.message.content) return '';
-    return message.message.content;
+  // Process the message content to extract UI resources and clean content
+  const { cleanContent: processedContent, resources: uiResources } = useMemo(() => {
+    if (!message.message.content) return { cleanContent: '', resources: [] };
+    return extractUIResources(message.message.content);
   }, [message.message.content]);
   
   // Check if the message has file attachments
@@ -126,23 +127,48 @@ export const MessageItem = ({ message, isLastMessage = false }: MessageItemProps
       )}
     >
       <div className={cn(
-        "flex items-start gap-3 w-full max-w-4xl mx-auto px-4",
-        isUser ? "justify-end" : "justify-start",
+        "flex w-full max-w-4xl mx-auto px-2 sm:px-4",
+        "flex-col sm:flex-row sm:items-start sm:gap-3",
+        isUser ? "items-end sm:justify-end" : "items-start sm:justify-start",
         "group"
       )}>
+        {/* Mobile: Avatar + Name row */}
+        <div className={cn(
+          "flex items-center gap-2 mb-1 sm:hidden",
+          isUser && "flex-row-reverse"
+        )}>
+          {!isUser ? (
+            <img
+              src="/giuseppe-avatar.jpg"
+              alt="Giuseppe"
+              className="h-5 w-5 rounded-full object-cover shrink-0"
+            />
+          ) : (
+            <Avatar className="h-5 w-5 bg-secondary text-secondary-foreground shrink-0">
+              <AvatarFallback>
+                <User className="h-3 w-3" />
+              </AvatarFallback>
+            </Avatar>
+          )}
+          <div className="text-xs font-medium text-muted-foreground">
+            {isUser ? 'You' : 'PeppeGPT'}
+          </div>
+        </div>
+
+        {/* Desktop: Avatar on side */}
         {!isUser && (
           <img
             src="/giuseppe-avatar.jpg"
             alt="Giuseppe"
-            className="h-8 w-8 rounded-full object-cover shrink-0 mt-1"
+            className="hidden sm:block h-8 w-8 rounded-full object-cover shrink-0 mt-1"
           />
         )}
-        
+
         <div className={cn(
           "flex flex-col space-y-1",
-          "max-w-[calc(100%-64px)]",
+          "w-full sm:max-w-[calc(100%-64px)]",
         )}>
-          <div className="text-xs font-medium text-muted-foreground">
+          <div className="hidden sm:block text-xs font-medium text-muted-foreground">
             {isUser ? 'You' : 'PeppeGPT'}
           </div>
           
@@ -165,6 +191,14 @@ export const MessageItem = ({ message, isLastMessage = false }: MessageItemProps
                     <span className="max-w-[150px] truncate">{file.fileName}</span>
                     <Download className="h-3 w-3 ml-1" />
                   </Badge>
+                ))}
+              </div>
+            )}
+            {/* Render UI Resources (widgets) */}
+            {uiResources.length > 0 && (
+              <div className="mb-4">
+                {uiResources.map((resource, index) => (
+                  <UIResourceRenderer key={`${resource.uri}-${index}`} resource={resource} />
                 ))}
               </div>
             )}
@@ -200,8 +234,9 @@ export const MessageItem = ({ message, isLastMessage = false }: MessageItemProps
           </div>
         </div>
         
+        {/* Desktop: User avatar on side */}
         {isUser && (
-          <Avatar className="h-8 w-8 bg-secondary text-secondary-foreground shrink-0 mt-1">
+          <Avatar className="hidden sm:flex h-8 w-8 bg-secondary text-secondary-foreground shrink-0 mt-1">
             <AvatarFallback>
               <User className="h-5 w-5" />
             </AvatarFallback>
