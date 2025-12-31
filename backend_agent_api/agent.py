@@ -36,6 +36,12 @@ from tools import (
     entity_relationships_tool,
     entity_timeline_tool
 )
+from mcp_ui_tools import (
+    create_calendly_widget,
+    create_contact_card,
+    create_github_repos_widget,
+    UIResource
+)
 
 # ========== Helper function to get model configuration ==========
 def get_model():
@@ -285,3 +291,50 @@ async def entity_timeline(ctx: RunContext[AgentDeps], entity_name: str) -> str:
     if not ctx.deps.graph_client:
         return "Knowledge graph not available - please use retrieve_relevant_documents instead"
     return await entity_timeline_tool(ctx.deps.graph_client, entity_name)
+
+
+# ============================================================================
+# MCP-UI Widget Tools - Interactive UI components for the chat
+# ============================================================================
+
+@agent.tool
+async def show_booking_widget(ctx: RunContext[AgentDeps]) -> str:
+    """
+    Display an interactive Calendly booking widget so users can schedule a call with Giuseppe.
+    Use this tool when the user wants to book a meeting, schedule a call, or set up an interview.
+
+    Returns:
+        A message confirming the widget is displayed, along with the UI resource data
+    """
+    print("Calling show_booking_widget tool")
+    widget = create_calendly_widget()
+    # Return both a text message and the UI resource as JSON
+    return f"__UI_RESOURCE__{widget.to_dict()}__END_UI_RESOURCE__\n\nI've displayed the Calendly booking widget above. You can select a time that works for you to schedule a call with Giuseppe."
+
+
+@agent.tool
+async def show_contact_card(ctx: RunContext[AgentDeps]) -> str:
+    """
+    Display Giuseppe's contact card with all his professional contact information.
+    Use this tool when users ask for contact details, how to reach Giuseppe, or want his LinkedIn/GitHub/email.
+
+    Returns:
+        A message confirming the widget is displayed, along with the UI resource data
+    """
+    print("Calling show_contact_card tool")
+    widget = create_contact_card()
+    return f"__UI_RESOURCE__{widget.to_dict()}__END_UI_RESOURCE__\n\nHere's Giuseppe's contact card with all his professional links and contact information."
+
+
+@agent.tool
+async def show_github_projects(ctx: RunContext[AgentDeps]) -> str:
+    """
+    Display a showcase of Giuseppe's GitHub projects and repositories.
+    Use this tool when users want to see his code samples, open source work, or technical projects.
+
+    Returns:
+        A message confirming the widget is displayed, along with the UI resource data
+    """
+    print("Calling show_github_projects tool")
+    widget = create_github_repos_widget()
+    return f"__UI_RESOURCE__{widget.to_dict()}__END_UI_RESOURCE__\n\nHere are Giuseppe's featured projects. Click on any project to view the full repository on GitHub."

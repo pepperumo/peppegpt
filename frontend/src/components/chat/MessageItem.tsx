@@ -12,6 +12,7 @@ import { PrismLight as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { cn } from '@/lib/utils';
 import { LoadingDots } from '@/components/ui/loading-dots';
+import { UIResourceRenderer, extractUIResources } from '@/components/ui/UIResourceRenderer';
 
 interface MessageItemProps {
   message: Message;
@@ -38,10 +39,10 @@ export const MessageItem = ({ message, isLastMessage = false }: MessageItemProps
   const isAI = message.message.type.toLowerCase() === 'ai';
   const isUser = !isAI;
 
-  // Process the message content to properly handle double newlines
-  const processedContent = useMemo(() => {
-    if (!message.message.content) return '';
-    return message.message.content;
+  // Process the message content to extract UI resources and clean content
+  const { cleanContent: processedContent, resources: uiResources } = useMemo(() => {
+    if (!message.message.content) return { cleanContent: '', resources: [] };
+    return extractUIResources(message.message.content);
   }, [message.message.content]);
   
   // Check if the message has file attachments
@@ -165,6 +166,14 @@ export const MessageItem = ({ message, isLastMessage = false }: MessageItemProps
                     <span className="max-w-[150px] truncate">{file.fileName}</span>
                     <Download className="h-3 w-3 ml-1" />
                   </Badge>
+                ))}
+              </div>
+            )}
+            {/* Render UI Resources (widgets) */}
+            {uiResources.length > 0 && (
+              <div className="mb-4">
+                {uiResources.map((resource, index) => (
+                  <UIResourceRenderer key={`${resource.uri}-${index}`} resource={resource} />
                 ))}
               </div>
             )}
