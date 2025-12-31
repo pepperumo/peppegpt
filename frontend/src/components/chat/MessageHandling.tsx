@@ -5,6 +5,7 @@ import { sendMessage, fetchMessages } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { Session, User } from '@supabase/supabase-js';
 import { findQA, simulateStreaming } from '@/lib/premadeQA';
+import { prependResourceMarkers } from '@/lib/uiResourceUtils';
 
 interface MessageHandlingProps {
   user: User | null;
@@ -190,11 +191,6 @@ export const useMessageHandling = ({
 
             // If we have UI resources, prepend them to the content
             if (pendingUiResources.length > 0) {
-              const resourceMarkers = pendingUiResources
-                .map((r: {uri: string; mimeType: string; text: string}) =>
-                  `__UI_RESOURCE__${JSON.stringify(r)}__END_UI_RESOURCE__`)
-                .join('');
-
               setMessages((prev) => {
                 const updatedMessages = [...prev];
                 const aiMessageIndex = updatedMessages.findIndex(msg => msg.id === aiMessageId);
@@ -205,7 +201,7 @@ export const useMessageHandling = ({
                     ...updatedMessages[aiMessageIndex],
                     message: {
                       ...updatedMessages[aiMessageIndex].message,
-                      content: resourceMarkers + '\n\n' + currentContent,
+                      content: prependResourceMarkers(currentContent, pendingUiResources),
                     },
                   };
                 }

@@ -3,6 +3,7 @@ import { ChatLayout } from '@/components/chat/ChatLayout';
 import { Message } from '@/types/database.types';
 import { useNavigate } from 'react-router-dom';
 import { findQA, simulateStreaming } from '@/lib/premadeQA';
+import { prependResourceMarkers } from '@/lib/uiResourceUtils';
 
 const AGENT_BASE_URL = import.meta.env.VITE_AGENT_ENDPOINT?.replace('/api/pydantic-agent', '') || 'http://localhost:8001';
 
@@ -185,13 +186,10 @@ export const GuestChat = () => {
 
       // If we have UI resources, prepend the marker to the content for rendering
       if (uiResources.length > 0 && isMounted.current) {
-        const resourceMarkers = uiResources
-          .map(r => `__UI_RESOURCE__${JSON.stringify(r)}__END_UI_RESOURCE__`)
-          .join('');
         setMessages(prev =>
           prev.map(msg =>
             msg.id === assistantMessageId
-              ? { ...msg, message: { ...msg.message, content: resourceMarkers + '\n\n' + fullText } }
+              ? { ...msg, message: { ...msg.message, content: prependResourceMarkers(fullText, uiResources) } }
               : msg
           )
         );
