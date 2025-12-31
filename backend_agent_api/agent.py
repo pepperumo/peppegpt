@@ -36,12 +36,7 @@ from tools import (
     entity_relationships_tool,
     entity_timeline_tool
 )
-from mcp_ui_tools import (
-    create_calendly_widget,
-    create_contact_card,
-    create_github_repos_widget,
-    UIResource
-)
+from mcp_ui_tools import create_calendly_widget, create_github_widget
 
 # ========== Helper function to get model configuration ==========
 def get_model():
@@ -73,6 +68,15 @@ class AgentDeps:
     memories: str
     web_search_enabled: bool = True
     graph_client: Any = None  # Optional GraphitiClient
+    ui_resources: List[dict] = None  # Store UI resources generated during the conversation
+
+    def __post_init__(self):
+        if self.ui_resources is None:
+            self.ui_resources = []
+
+    def add_ui_resource(self, resource: dict):
+        """Add a UI resource to be sent with the response."""
+        self.ui_resources.append(resource)
 
 # To use the code execution MCP server:
 # First uncomment the line below that defines 'code_execution_server', then also uncomment 'mcp_servers=[code_execution_server]'
@@ -304,37 +308,56 @@ async def show_booking_widget(ctx: RunContext[AgentDeps]) -> str:
     Use this tool when the user wants to book a meeting, schedule a call, or set up an interview.
 
     Returns:
-        A message confirming the widget is displayed, along with the UI resource data
+        A confirmation message. The widget will be displayed automatically.
     """
     print("Calling show_booking_widget tool")
     widget = create_calendly_widget()
-    # Return both a text message and the UI resource as JSON
-    return f"__UI_RESOURCE__{widget.to_dict()}__END_UI_RESOURCE__\n\nI've displayed the Calendly booking widget above. You can select a time that works for you to schedule a call with Giuseppe."
-
-
-@agent.tool
-async def show_contact_card(ctx: RunContext[AgentDeps]) -> str:
-    """
-    Display Giuseppe's contact card with all his professional contact information.
-    Use this tool when users ask for contact details, how to reach Giuseppe, or want his LinkedIn/GitHub/email.
-
-    Returns:
-        A message confirming the widget is displayed, along with the UI resource data
-    """
-    print("Calling show_contact_card tool")
-    widget = create_contact_card()
-    return f"__UI_RESOURCE__{widget.to_dict()}__END_UI_RESOURCE__\n\nHere's Giuseppe's contact card with all his professional links and contact information."
+    # Store UI resource in deps to be sent with API response
+    ctx.deps.add_ui_resource(widget.to_dict())
+    return "The Calendly booking widget has been displayed. The user can now select a time slot to schedule a call with Giuseppe."
 
 
 @agent.tool
 async def show_github_projects(ctx: RunContext[AgentDeps]) -> str:
     """
-    Display a showcase of Giuseppe's GitHub projects and repositories.
-    Use this tool when users want to see his code samples, open source work, or technical projects.
+    Display Giuseppe's GitHub profile and repositories widget.
+    Use this tool when users want to see his code samples, GitHub projects, open source work, or technical portfolio.
 
     Returns:
-        A message confirming the widget is displayed, along with the UI resource data
+        A confirmation message. The GitHub widget will be displayed automatically.
     """
     print("Calling show_github_projects tool")
-    widget = create_github_repos_widget()
-    return f"__UI_RESOURCE__{widget.to_dict()}__END_UI_RESOURCE__\n\nHere are Giuseppe's featured projects. Click on any project to view the full repository on GitHub."
+
+    # Fetch real repos from GitHub API
+    username = "pepperumo"
+    repos = []
+
+    try:
+        response = await ctx.deps.http_client.get(
+            f"https://api.github.com/users/{username}/repos",
+            params={"sort": "updated", "per_page": 10},
+            headers={"Accept": "application/vnd.github.v3+json"}
+        )
+        print(f"GitHub API response status: {response.status_code}")
+        if response.status_code == 200:
+            data = response.json()
+            repos = [
+                {
+                    "name": repo["name"],
+                    "description": repo["description"] or "No description",
+                    "language": repo["language"],
+                    "stars": repo["stargazers_count"],
+                    "url": repo["html_url"]
+                }
+                for repo in data
+                if not repo["fork"]  # Exclude forks
+            ][:6]
+            print(f"Fetched {len(repos)} repos: {[r['name'] for r in repos]}")
+    except Exception as e:
+        print(f"Error fetching GitHub repos: {e}")
+
+    widget = create_github_widget(username=username, repos=repos)
+    print(f"Created GitHub widget with URI: {widget.uri}")
+    ctx.deps.add_ui_resource(widget.to_dict())
+    print(f"UI resources count after add: {len(ctx.deps.ui_resources)}")
+    return f"Giuseppe's GitHub profile and {len(repos)} repositories have been displayed. Users can click on any repo to view it on GitHub."

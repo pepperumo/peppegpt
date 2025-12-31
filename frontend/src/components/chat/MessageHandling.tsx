@@ -122,23 +122,24 @@ export const useMessageHandling = ({
       
       // Track if this is a new conversation
       const isNewConversation = !currentSessionId;
-      
+
       // Create an ID for the AI message that will be created
       const aiMessageId = `temp-${Date.now()}-ai`;
       let aiMessageCreated = false;
       let completionReceived = false;
-      
+      let pendingUiResources: Array<{uri: string; mimeType: string; text: string}> = [];
+
       // Send to webhook API with streaming callback (for non-premade questions)
       const response = await sendMessage(
-        content, 
-        user.id, 
+        content,
+        user.id,
         currentSessionId,
         session?.access_token,
         files,
         // Streaming callback function with enhanced completion handling
         (chunk) => {
           if (!isMounted.current) return;
-          
+
           // Process text chunks
           if (chunk.text && chunk.text.trim() !== '') {
             if (!aiMessageCreated) {
@@ -153,7 +154,7 @@ export const useMessageHandling = ({
                 },
                 created_at: new Date().toISOString(),
               };
-              
+
               // Add the AI message to the UI
               setMessages((prev) => [...prev, aiMessage]);
               aiMessageCreated = true;
@@ -162,7 +163,7 @@ export const useMessageHandling = ({
               setMessages((prev) => {
                 const updatedMessages = [...prev];
                 const aiMessageIndex = updatedMessages.findIndex(msg => msg.id === aiMessageId);
-                
+
                 if (aiMessageIndex !== -1) {
                   updatedMessages[aiMessageIndex] = {
                     ...updatedMessages[aiMessageIndex],
@@ -172,15 +173,46 @@ export const useMessageHandling = ({
                     },
                   };
                 }
-                
+
                 return updatedMessages;
               });
             }
           }
-          
+
+          // Capture UI resources from the response
+          if (chunk.ui_resources) {
+            pendingUiResources = chunk.ui_resources;
+          }
+
           // Check for completion flag
           if (chunk.complete === true && !completionReceived) {
             completionReceived = true;
+
+            // If we have UI resources, prepend them to the content
+            if (pendingUiResources.length > 0) {
+              const resourceMarkers = pendingUiResources
+                .map((r: {uri: string; mimeType: string; text: string}) =>
+                  `__UI_RESOURCE__${JSON.stringify(r)}__END_UI_RESOURCE__`)
+                .join('');
+
+              setMessages((prev) => {
+                const updatedMessages = [...prev];
+                const aiMessageIndex = updatedMessages.findIndex(msg => msg.id === aiMessageId);
+
+                if (aiMessageIndex !== -1) {
+                  const currentContent = updatedMessages[aiMessageIndex].message.content;
+                  updatedMessages[aiMessageIndex] = {
+                    ...updatedMessages[aiMessageIndex],
+                    message: {
+                      ...updatedMessages[aiMessageIndex].message,
+                      content: resourceMarkers + '\n\n' + currentContent,
+                    },
+                  };
+                }
+
+                return updatedMessages;
+              });
+            }
             
             // If we have a session_id in the completion chunk, update the message
             if (chunk.session_id && chunk.session_id !== currentSessionId) {

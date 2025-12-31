@@ -31,9 +31,8 @@ export const UIResourceRenderer = ({ resource, className = '' }: UIResourceRende
 
   // Determine height based on widget type
   const getHeightFromUri = (uri: string): string => {
-    if (uri.includes('calendly')) return '700px';
-    if (uri.includes('contact')) return '300px';
-    if (uri.includes('github')) return '280px';
+    if (uri.includes('calendly')) return '1100px'; // Full Calendly widget without scrolling
+    if (uri.includes('github')) return '520px'; // GitHub profile with repos
     return '400px';
   };
 
@@ -42,7 +41,7 @@ export const UIResourceRenderer = ({ resource, className = '' }: UIResourceRende
   }
 
   return (
-    <div className={`ui-resource-container my-4 ${className}`}>
+    <div className={`ui-resource-container my-2 sm:my-4 ${className}`}>
       <iframe
         src={iframeSrc}
         className="w-full rounded-lg border border-gray-700"

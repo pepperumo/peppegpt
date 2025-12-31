@@ -127,23 +127,48 @@ export const MessageItem = ({ message, isLastMessage = false }: MessageItemProps
       )}
     >
       <div className={cn(
-        "flex items-start gap-3 w-full max-w-4xl mx-auto px-4",
-        isUser ? "justify-end" : "justify-start",
+        "flex w-full max-w-4xl mx-auto px-2 sm:px-4",
+        "flex-col sm:flex-row sm:items-start sm:gap-3",
+        isUser ? "items-end sm:justify-end" : "items-start sm:justify-start",
         "group"
       )}>
+        {/* Mobile: Avatar + Name row */}
+        <div className={cn(
+          "flex items-center gap-2 mb-1 sm:hidden",
+          isUser && "flex-row-reverse"
+        )}>
+          {!isUser ? (
+            <img
+              src="/giuseppe-avatar.jpg"
+              alt="Giuseppe"
+              className="h-5 w-5 rounded-full object-cover shrink-0"
+            />
+          ) : (
+            <Avatar className="h-5 w-5 bg-secondary text-secondary-foreground shrink-0">
+              <AvatarFallback>
+                <User className="h-3 w-3" />
+              </AvatarFallback>
+            </Avatar>
+          )}
+          <div className="text-xs font-medium text-muted-foreground">
+            {isUser ? 'You' : 'PeppeGPT'}
+          </div>
+        </div>
+
+        {/* Desktop: Avatar on side */}
         {!isUser && (
           <img
             src="/giuseppe-avatar.jpg"
             alt="Giuseppe"
-            className="h-8 w-8 rounded-full object-cover shrink-0 mt-1"
+            className="hidden sm:block h-8 w-8 rounded-full object-cover shrink-0 mt-1"
           />
         )}
-        
+
         <div className={cn(
           "flex flex-col space-y-1",
-          "max-w-[calc(100%-64px)]",
+          "w-full sm:max-w-[calc(100%-64px)]",
         )}>
-          <div className="text-xs font-medium text-muted-foreground">
+          <div className="hidden sm:block text-xs font-medium text-muted-foreground">
             {isUser ? 'You' : 'PeppeGPT'}
           </div>
           
@@ -209,8 +234,9 @@ export const MessageItem = ({ message, isLastMessage = false }: MessageItemProps
           </div>
         </div>
         
+        {/* Desktop: User avatar on side */}
         {isUser && (
-          <Avatar className="h-8 w-8 bg-secondary text-secondary-foreground shrink-0 mt-1">
+          <Avatar className="hidden sm:flex h-8 w-8 bg-secondary text-secondary-foreground shrink-0 mt-1">
             <AvatarFallback>
               <User className="h-5 w-5" />
             </AvatarFallback>

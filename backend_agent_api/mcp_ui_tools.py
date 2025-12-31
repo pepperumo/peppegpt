@@ -52,7 +52,7 @@ def create_calendly_widget(
         }}
         .widget-container {{
             width: 100%;
-            min-height: 650px;
+            min-height: 1050px;
             border-radius: 12px;
             overflow: hidden;
             background: #0f0f23;
@@ -72,7 +72,7 @@ def create_calendly_widget(
         }}
         .calendly-frame {{
             width: 100%;
-            height: 600px;
+            height: 1000px;
             border: none;
         }}
     </style>
@@ -99,233 +99,179 @@ def create_calendly_widget(
     )
 
 
-def create_contact_card() -> UIResource:
+def create_github_widget(username: str = "pepperumo", repos: list = None) -> UIResource:
     """
-    Create Giuseppe's contact card as MCP-UI resource.
+    Create a GitHub profile/repos widget as MCP-UI resource.
+
+    Args:
+        username: GitHub username
+        repos: List of repo dicts with name, description, language, stars, url
 
     Returns:
-        UIResource containing the contact card widget
+        UIResource containing the GitHub widget
     """
-    html = '''<!DOCTYPE html>
+    # Build repo cards HTML
+    repo_cards = ""
+    if repos:
+        for repo in repos[:6]:  # Show top 6 repos
+            lang_color = {
+                "Python": "#3572A5",
+                "JavaScript": "#f1e05a",
+                "TypeScript": "#2b7489",
+                "HTML": "#e34c26",
+                "CSS": "#563d7c",
+                "Jupyter Notebook": "#DA5B0B",
+            }.get(repo.get("language", ""), "#8b949e")
+
+            lang_badge = f'''<span class="lang-badge" style="background: {lang_color}20; color: {lang_color};">{repo.get("language", "")}</span>''' if repo.get("language") else ""
+
+            repo_cards += f'''
+            <a class="repo-card" href="{repo.get("url", "#")}" target="_blank">
+                <div class="repo-name">{repo.get("name", "")}</div>
+                <div class="repo-desc">{repo.get("description", "No description")[:100]}</div>
+                <div class="repo-meta">
+                    {lang_badge}
+                    <span class="stars">⭐ {repo.get("stars", 0)}</span>
+                </div>
+            </a>'''
+
+    html = f'''<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: transparent;
-        }
-        .card {
-            background: linear-gradient(135deg, #1e3a5f 0%, #0f0f23 100%);
-            border-radius: 16px;
-            padding: 24px;
-            color: #fff;
-            max-width: 400px;
-        }
-        .card-header {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            margin-bottom: 20px;
-        }
-        .avatar {
-            width: 64px;
-            height: 64px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            font-weight: bold;
-        }
-        .name {
-            font-size: 20px;
-            font-weight: 600;
-        }
-        .title {
-            font-size: 14px;
-            color: #94a3b8;
-            margin-top: 4px;
-        }
-        .info-row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-        .info-row:last-child {
-            border-bottom: none;
-        }
-        .info-row .icon {
-            font-size: 18px;
-            width: 24px;
-            text-align: center;
-        }
-        .info-row a {
-            color: #60a5fa;
-            text-decoration: none;
-            transition: color 0.2s;
-        }
-        .info-row a:hover {
-            color: #93c5fd;
-            text-decoration: underline;
-        }
-        .info-row span {
-            color: #e2e8f0;
-        }
-    </style>
-</head>
-<body>
-    <div class="card">
-        <div class="card-header">
-            <div class="avatar">GR</div>
-            <div>
-                <div class="name">Giuseppe Rumore</div>
-                <div class="title">AI Agent & MLOps Engineer</div>
-            </div>
-        </div>
-        <div class="info-row">
-            <span class="icon">📍</span>
-            <span>Berlin, Germany</span>
-        </div>
-        <div class="info-row">
-            <span class="icon">📧</span>
-            <a href="mailto:pepperumo@gmail.com">pepperumo@gmail.com</a>
-        </div>
-        <div class="info-row">
-            <span class="icon">💼</span>
-            <a href="https://linkedin.com/in/giuseppe-rumore-b2599961" target="_blank">LinkedIn Profile</a>
-        </div>
-        <div class="info-row">
-            <span class="icon">💻</span>
-            <a href="https://github.com/pepperumo" target="_blank">GitHub Profile</a>
-        </div>
-        <div class="info-row">
-            <span class="icon">🌐</span>
-            <a href="https://peppegpt.com" target="_blank">peppegpt.com</a>
-        </div>
-    </div>
-</body>
-</html>'''
-
-    return UIResource(
-        uri="ui://contact/card",
-        mime_type="text/html",
-        content=html
-    )
-
-
-def create_github_repos_widget() -> UIResource:
-    """
-    Create a GitHub repositories showcase widget.
-
-    Returns:
-        UIResource containing the GitHub repos widget
-    """
-    html = '''<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: transparent;
-        }
-        .widget {
+        }}
+        .widget {{
             background: #0f0f23;
             border-radius: 12px;
             padding: 20px;
             color: #fff;
-        }
-        .widget-title {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 16px;
+        }}
+        .header {{
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }}
+        .avatar {{
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            border: 2px solid #3b82f6;
+        }}
+        .profile-info h2 {{
+            font-size: 18px;
+            margin-bottom: 4px;
+        }}
+        .profile-info a {{
+            color: #60a5fa;
+            text-decoration: none;
+            font-size: 14px;
+        }}
+        .profile-info a:hover {{
+            text-decoration: underline;
+        }}
+        .section-title {{
+            font-size: 14px;
+            color: #8b949e;
+            margin-bottom: 12px;
             display: flex;
             align-items: center;
             gap: 8px;
-        }
-        .repo-grid {
+        }}
+        .repo-grid {{
             display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 12px;
-        }
-        .repo-card {
+        }}
+        .repo-card {{
             background: rgba(255,255,255,0.05);
             border: 1px solid rgba(255,255,255,0.1);
             border-radius: 8px;
-            padding: 16px;
+            padding: 14px;
+            text-decoration: none;
+            color: inherit;
             transition: all 0.2s;
-        }
-        .repo-card:hover {
+            display: block;
+        }}
+        .repo-card:hover {{
             background: rgba(255,255,255,0.08);
             border-color: #3b82f6;
-        }
-        .repo-name {
+            transform: translateY(-2px);
+        }}
+        .repo-name {{
             font-weight: 600;
             color: #60a5fa;
-            text-decoration: none;
-            font-size: 15px;
-        }
-        .repo-name:hover {
-            text-decoration: underline;
-        }
-        .repo-desc {
-            font-size: 13px;
-            color: #94a3b8;
-            margin-top: 8px;
+            font-size: 14px;
+            margin-bottom: 6px;
+        }}
+        .repo-desc {{
+            font-size: 12px;
+            color: #8b949e;
             line-height: 1.4;
-        }
-        .repo-tags {
+            margin-bottom: 10px;
+        }}
+        .repo-meta {{
             display: flex;
-            gap: 8px;
-            margin-top: 12px;
-            flex-wrap: wrap;
-        }
-        .tag {
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+        }}
+        .lang-badge {{
+            padding: 2px 8px;
+            border-radius: 12px;
             font-size: 11px;
-            padding: 4px 8px;
-            background: rgba(59, 130, 246, 0.2);
+        }}
+        .stars {{
+            color: #8b949e;
+        }}
+        .view-all {{
+            display: block;
+            text-align: center;
+            margin-top: 16px;
+            padding: 10px;
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 8px;
             color: #60a5fa;
-            border-radius: 4px;
-        }
+            text-decoration: none;
+            font-size: 14px;
+            transition: all 0.2s;
+        }}
+        .view-all:hover {{
+            background: rgba(59, 130, 246, 0.2);
+        }}
     </style>
 </head>
 <body>
     <div class="widget">
-        <div class="widget-title">💻 Featured Projects</div>
-        <div class="repo-grid">
-            <div class="repo-card">
-                <a class="repo-name" href="https://github.com/pepperumo/peppegpt" target="_blank">peppegpt</a>
-                <div class="repo-desc">Full-stack AI chatbot with LangGraph agents, RAG pipeline, and real-time streaming</div>
-                <div class="repo-tags">
-                    <span class="tag">Python</span>
-                    <span class="tag">React</span>
-                    <span class="tag">LangGraph</span>
-                    <span class="tag">RAG</span>
-                </div>
-            </div>
-            <div class="repo-card">
-                <a class="repo-name" href="https://github.com/pepperumo" target="_blank">More projects →</a>
-                <div class="repo-desc">Explore more AI/ML projects including vehicle damage detection, recommender systems, and automation tools</div>
-                <div class="repo-tags">
-                    <span class="tag">YOLOv8</span>
-                    <span class="tag">FastAPI</span>
-                    <span class="tag">n8n</span>
-                </div>
+        <div class="header">
+            <img class="avatar" src="https://github.com/{username}.png" alt="{username}">
+            <div class="profile-info">
+                <h2>Giuseppe Rumore</h2>
+                <a href="https://github.com/{username}" target="_blank">@{username}</a>
             </div>
         </div>
+        <div class="section-title">📦 Popular Repositories</div>
+        <div class="repo-grid">
+            {repo_cards}
+        </div>
+        <a class="view-all" href="https://github.com/{username}?tab=repositories" target="_blank">
+            View all repositories →
+        </a>
     </div>
 </body>
 </html>'''
 
     return UIResource(
-        uri="ui://github/repos",
+        uri="ui://github/profile",
         mime_type="text/html",
         content=html
     )
@@ -334,8 +280,7 @@ def create_github_repos_widget() -> UIResource:
 # Widget registry for easy lookup
 AVAILABLE_WIDGETS = {
     "calendly": create_calendly_widget,
-    "contact": create_contact_card,
-    "github": create_github_repos_widget,
+    "github": create_github_widget,
 }
 
 
@@ -344,7 +289,7 @@ def get_widget(widget_type: str, **kwargs) -> Optional[UIResource]:
     Get a widget by type.
 
     Args:
-        widget_type: One of 'calendly', 'contact', 'github'
+        widget_type: Currently only 'calendly' is supported
         **kwargs: Additional arguments for the widget
 
     Returns:
