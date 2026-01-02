@@ -19,8 +19,8 @@
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
   ],
   "text_processing": {
-    "default_chunk_size": 400,
-    "default_chunk_overlap": 0
+    "default_chunk_size": 800,
+    "default_chunk_overlap": 100
   },
   "last_check_time": "2025-06-12T08:06:28.111337Z",
   "watch_directory": "C:\\Users\\colem\\OneDrive\\Documents\\ExampleProject\\DataDir"

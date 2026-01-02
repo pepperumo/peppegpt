@@ -24,10 +24,11 @@ else:
     # Production: use cloud platform env vars only
     load_dotenv()
 
-# Chunking configuration (optimized for better retrieval)
-MAX_CHUNK_SIZE = 400  # Reduced from 600 for more focused chunks
-MIN_CHUNK_SIZE = 150  # Reduced from 250 to allow smaller, more specific chunks
-MERGE_PAD = int(MAX_CHUNK_SIZE * 1.1)  # Allow only 10% overflow (440 chars) instead of more
+# Chunking configuration (optimized for better retrieval with overlap)
+MAX_CHUNK_SIZE = 800  # Larger chunks to keep related content together
+MIN_CHUNK_SIZE = 100  # Minimum size to avoid tiny fragments
+DEFAULT_OVERLAP = 100  # Characters of overlap between chunks for context continuity
+MERGE_PAD = int(MAX_CHUNK_SIZE * 1.1)  # Allow only 10% overflow
 ENABLE_HEADING_SPLIT = True
 
 # Initialize LLM client for chunking (if configured)
@@ -165,7 +166,7 @@ Just the single word itself, nothing else."""
     return max_chars
 
 
-def chunk_text(text: str, chunk_size: int = 1000, overlap: int = 0, use_advanced: bool = True) -> List[str]:
+def chunk_text(text: str, chunk_size: int = MAX_CHUNK_SIZE, overlap: int = DEFAULT_OVERLAP, use_advanced: bool = True) -> List[str]:
     """
     Advanced text chunking with Markdown awareness, table preservation, and semantic splitting.
     
@@ -277,21 +278,27 @@ def chunk_text(text: str, chunk_size: int = 1000, overlap: int = 0, use_advanced
     # - Only merge if the resulting chunk maintains semantic coherence
     pass  # Merging disabled
     
-    # 6. Apply overlap if specified (for non-table chunks)
+    # 6. Apply overlap - APPEND next chunk's start to current chunk's end
+    # This preserves each chunk's semantic meaning at the start while providing forward context
+    print(f"Applying overlap: {overlap} chars to {len(chunks)} chunks (appending next chunk's start)")
+
     if overlap > 0:
         result_chunks = []
+        overlap_count = 0
         for i, chunk in enumerate(chunks):
             content = chunk['content']
-            
-            # Add overlap from previous chunk (if not a table)
-            if i > 0 and not chunks[i - 1].get('is_table') and not chunk.get('is_table'):
-                prev_content = chunks[i - 1]['content']
-                if len(prev_content) >= overlap:
-                    overlap_text = prev_content[-overlap:]
-                    content = overlap_text + content
-            
+
+            # Add overlap from NEXT chunk to END (if not a table)
+            if i < len(chunks) - 1 and not chunks[i + 1].get('is_table') and not chunk.get('is_table'):
+                next_content = chunks[i + 1]['content']
+                if len(next_content) >= overlap:
+                    overlap_text = next_content[:overlap]
+                    content = content + "\n" + overlap_text
+                    overlap_count += 1
+
             result_chunks.append(content)
-        
+
+        print(f"Applied overlap to {overlap_count} chunks")
         return result_chunks
     
     # 7. Extract just the content strings

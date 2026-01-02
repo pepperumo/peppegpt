@@ -14,8 +14,8 @@ import os
 import re
 
 # RAG retrieval configuration - change these to tune retrieval behavior
-RAG_MATCH_COUNT = 8  # Number of chunks to retrieve
-RAG_MATCH_THRESHOLD = 0.25  # Minimum similarity score (0-1, lower = more permissive)
+RAG_MATCH_COUNT = 12  # Number of chunks to retrieve (increased for better coverage)
+RAG_MATCH_THRESHOLD = 0.20  # Minimum similarity score (0-1, lower = more permissive)
 
 embedding_model = os.getenv('EMBEDDING_MODEL_CHOICE') or 'text-embedding-3-small'
 

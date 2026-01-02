@@ -340,6 +340,8 @@ def process_file_for_rag(file_content: bytes, text: str, file_id: str, file_url:
         chunk_size = text_processing.get('default_chunk_size', 400)
         chunk_overlap = text_processing.get('default_chunk_overlap', 0)
 
+        print(f"Chunking with size={chunk_size}, overlap={chunk_overlap}")
+
         # Chunk the text
         chunks = chunk_text(text, chunk_size=chunk_size, overlap=chunk_overlap)
         if not chunks:

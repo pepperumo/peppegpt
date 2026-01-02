@@ -30,8 +30,8 @@
     "application/vnd.google-apps.spreadsheet"
   ],
   "text_processing": {
-    "default_chunk_size": 1000,
-    "default_chunk_overlap": 0
+    "default_chunk_size": 800,
+    "default_chunk_overlap": 100
   },
   "watch_folder_id": "1BzI9imiEOJuQ1HNJTRoBv4N8LgE09L-H",
   "last_check_time": "2025-10-15T02:35:08.341250Z"

@@ -128,12 +128,16 @@ async def retrieve_relevant_documents(ctx: RunContext[AgentDeps], user_query: st
     Retrieve relevant document chunks based on the query with RAG.
     Enhanced with knowledge graph search when available.
 
+    IMPORTANT: Pass the user's EXACT original question without modification.
+    Do NOT rephrase, expand, or add names like "Giuseppe Rumore" - this hurts semantic search accuracy.
+    Example: If user asks "What languages do you speak?" pass exactly that, not "languages spoken by Giuseppe Rumore".
+
     Args:
         ctx: The context including the Supabase client and OpenAI client
-        user_query: The user's question or query
+        user_query: The user's EXACT original question - do not modify or rephrase
 
     Returns:
-        A formatted string containing the top 4 most relevant documents chunks plus graph context
+        A formatted string containing the most relevant document chunks plus graph context
     """
     print("Calling retrieve_relevant_documents tool")
     return await retrieve_relevant_documents_tool(
