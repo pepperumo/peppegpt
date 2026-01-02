@@ -54,21 +54,25 @@ class TestChunkText:
     def test_multiple_chunks(self):
         """Test chunking text into multiple chunks"""
         text = "A" * 1000
-        result = chunk_text(text, chunk_size=400)
+        # Use overlap=0 to test basic chunking without overlap
+        result = chunk_text(text, chunk_size=400, overlap=0)
         assert len(result) == 3
         assert result[0] == "A" * 400
         assert result[1] == "A" * 400
         assert result[2] == "A" * 200
     
     def test_with_overlap(self):
-        """Test chunking text with overlap"""
+        """Test chunking text with overlap appended to end of chunks"""
         text = "A" * 1000
         result = chunk_text(text, chunk_size=400, overlap=100)
-        # Actual behavior: sentence boundary chunking produces variable sizes
+        # New behavior: overlap is appended to END of each chunk (next chunk's start)
+        # Chunk 1: 400 chars + newline + 100 overlap from chunk 2 = 501
+        # Chunk 2: 400 chars + newline + 100 overlap from chunk 3 = 501
+        # Chunk 3: 200 chars (last chunk, no overlap appended)
         assert len(result) == 3
-        assert len(result[0]) == 400
-        assert len(result[1]) == 500
-        assert len(result[2]) == 300
+        assert len(result[0]) == 501  # 400 + "\n" + 100
+        assert len(result[1]) == 501  # 400 + "\n" + 100
+        assert len(result[2]) == 200  # Last chunk, no overlap
 
 class TestExtractTextFromPdf:
     @patch('common.text_processor.extract_text_with_docling')
