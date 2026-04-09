@@ -68,6 +68,42 @@ services:
     depends_on:
       - agent-api
 
+  # RAG Pipeline Service
+  rag-pipeline:
+    build: ./backend_rag_pipeline
+    container_name: rag-pipeline
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - RAG_PIPELINE_TYPE=${RAG_PIPELINE_TYPE:-local}
+      - RUN_MODE=${RUN_MODE:-continuous}
+      - RAG_PIPELINE_ID=${RAG_PIPELINE_ID}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - EMBEDDING_BASE_URL=${EMBEDDING_BASE_URL:-https://api.openai.com/v1}
+      - EMBEDDING_API_KEY=${EMBEDDING_API_KEY}
+      - EMBEDDING_MODEL_CHOICE=${EMBEDDING_MODEL_CHOICE:-text-embedding-3-small}
+      - LLM_BASE_URL=${LLM_BASE_URL:-https://api.openai.com/v1}
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_CHOICE=${LLM_CHOICE:-gpt-4o-mini}
+      - GRAPH_MODE=${GRAPH_MODE:-folder-only}
+      - DOCLING_OCR_LANGUAGES=${DOCLING_OCR_LANGUAGES:-en}
+      - DOCLING_TABLE_MODE=${DOCLING_TABLE_MODE:-fast}
+      - DOCLING_DEVICE=${DOCLING_DEVICE:-auto}
+      - DOCLING_NUM_THREADS=${DOCLING_NUM_THREADS:-4}
+      - ENABLE_LLM_CHUNKING=${ENABLE_LLM_CHUNKING:-false}
+      - CHUNKING_LLM_MODEL=${CHUNKING_LLM_MODEL:-gpt-4o-mini}
+      - GOOGLE_DRIVE_CREDENTIALS_JSON=${GOOGLE_DRIVE_CREDENTIALS_JSON}
+      - RAG_WATCH_FOLDER_ID=${RAG_WATCH_FOLDER_ID}
+      - RAG_WATCH_DIRECTORY=${RAG_WATCH_DIRECTORY}
+    volumes:
+      - rag-documents:/app/Local_Files/data
+      - google-credentials:/app/Google_Drive/credentials
+
 networks:
   n8n_default:
     external: true
+
+volumes:
+  rag-documents:
+  google-credentials:
