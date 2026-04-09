@@ -6,8 +6,6 @@ services:
     build: ./backend_agent_api
     container_name: agent-api
     restart: "no"
-    ports:
-      - "8001:8001"
     labels:
       - traefik.enable=true
       - traefik.http.routers.peppegpt-api.rule=Host(`peppegpt.giusepperumore.com`) && PathPrefix(`/api`)
@@ -116,8 +114,6 @@ services:
         VITE_LANGFUSE_HOST_WITH_PROJECT: ${VITE_LANGFUSE_HOST_WITH_PROJECT}
     container_name: frontend
     restart: "no"
-    ports:
-      - "8082:8080"
     labels:
       - traefik.enable=true
       - traefik.http.routers.peppegpt-frontend.rule=Host(`peppegpt.giusepperumore.com`)
