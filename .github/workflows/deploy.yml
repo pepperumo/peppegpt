@@ -99,7 +99,7 @@ jobs:
       - name: Add server to known hosts
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H srv1189800.hstgr.cloud >> ~/.ssh/known_hosts
+          ssh-keyscan -H srv1574020.hstgr.cloud >> ~/.ssh/known_hosts
 
       - name: Sync project files
         run: |
@@ -115,18 +115,18 @@ jobs:
             --exclude ".git" \
             --exclude "*.pyc" \
             --exclude ".DS_Store" \
-            ./ root@srv1189800.hstgr.cloud:/root/peppegpt/
+            ./ root@srv1574020.hstgr.cloud:/docker/peppegpt/
 
       - name: Sync .env.prod to server
         run: |
           echo "${{ secrets.ENV_PROD_BASE64 }}" | base64 -d > .env.prod
-          scp .env.prod root@srv1189800.hstgr.cloud:/root/peppegpt/.env
+          scp .env.prod root@srv1574020.hstgr.cloud:/docker/peppegpt/.env
 
       - name: Deploy containers
         run: |
-          ssh root@srv1189800.hstgr.cloud "cd /root/peppegpt && docker compose down && docker compose up -d --build"
+          ssh root@srv1574020.hstgr.cloud "cd /docker/peppegpt && docker compose down && docker compose up -d --build"
 
       - name: Health check
         run: |
           sleep 30
-          ssh root@srv1189800.hstgr.cloud "docker ps --format 'table {{.Names}}\t{{.Status}}'"
+          ssh root@srv1574020.hstgr.cloud "docker ps --format 'table {{.Names}}\t{{.Status}}'"

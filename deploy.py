@@ -20,8 +20,8 @@ import sys
 import os
 
 # Remote server configuration
-REMOTE_HOST = "root@srv1189800.hstgr.cloud"
-REMOTE_PATH = "/root/peppegpt"
+REMOTE_HOST = "root@srv1574020.hstgr.cloud"
+REMOTE_PATH = "/docker/peppegpt"
 
 def run_command(cmd, cwd=None):
     """Run a shell command and print it."""
