@@ -5,7 +5,7 @@ services:
   agent-api:
     build: ./backend_agent_api
     container_name: agent-api
-    restart: "no"
+    restart: unless-stopped
     labels:
       - traefik.enable=true
       - traefik.http.routers.peppegpt-api.rule=Host(`peppegpt.giusepperumore.com`) && PathPrefix(`/api`)
@@ -56,7 +56,7 @@ services:
   rag-pipeline:
     build: ./backend_rag_pipeline
     container_name: rag-pipeline
-    restart: "no"
+    restart: unless-stopped
     environment:
       - ENVIRONMENT=${ENVIRONMENT:-development}
       # Pipeline Configuration
@@ -113,7 +113,7 @@ services:
         VITE_ENABLE_STREAMING: ${VITE_ENABLE_STREAMING:-true}
         VITE_LANGFUSE_HOST_WITH_PROJECT: ${VITE_LANGFUSE_HOST_WITH_PROJECT}
     container_name: frontend
-    restart: "no"
+    restart: unless-stopped
     labels:
       - traefik.enable=true
       - traefik.http.routers.peppegpt-frontend.rule=Host(`peppegpt.giusepperumore.com`)
@@ -133,7 +133,7 @@ services:
     profiles: ["graph"]
     image: neo4j:latest
     container_name: neo4j
-    restart: "no"
+    restart: unless-stopped
     ports:
       - "7474:7474"  # Web interface at http://localhost:7474
       - "7687:7687"  # Bolt protocol
